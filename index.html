@@ -3,70 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hook Notifier | Dashboard</title>
+    <title>Hook Notifier | Dashboard updated</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <style>
-        body { background-color: #0d0d0f; color: #f4f4f5; font-family: 'Inter', sans-serif; }
-        .card { background: #16161a; border: 1px solid #27272a; }
-        .input-box { background: #09090b; border: 1px solid #27272a; transition: all 0.2s; }
-        .input-box:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
-        .btn-primary { background: #3b82f6; transition: all 0.2s; }
-        .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
-        .status-msg { transition: opacity 0.5s; }
-    </style>
 </head>
-<body class="min-h-screen flex flex-col items-center p-6">
-    <div class="w-full max-w-2xl">
-        <header class="flex justify-between items-center mb-12">
-            <h1 class="text-2xl font-bold tracking-tight">HOOK <span class="text-blue-500">NOTIFIER</span></h1>
-            <button id="authBtn" class="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg text-sm font-bold transition">Login with Discord</button>
+<body class="bg-[#0d0d0f] text-zinc-100 min-h-screen flex flex-col items-center p-6 font-sans">
+    <div class="w-full max-w-xl">
+        <header class="flex justify-between items-center mb-10">
+            <h1 class="text-xl font-black tracking-tighter">HOOK <span class="text-blue-500">NOTIFIER</span></h1>
+            <button id="authBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-xs font-bold transition">Login with Discord</button>
         </header>
 
         <div id="dashboard" class="hidden space-y-6">
-            <div class="card p-8 rounded-2xl">
-                <h2 class="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-6">Script Configuration</h2>
+            <div class="bg-[#16161a] border border-zinc-800 p-8 rounded-2xl shadow-2xl">
+                <h2 class="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-6">Cloud Configuration</h2>
                 
-                <div class="grid gap-6">
+                <div class="space-y-5">
                     <div>
-                        <label class="block text-sm mb-2 text-zinc-300">AutoJoin Threshold ($)</label>
-                        <input type="number" id="threshold" value="500000000" class="input-box w-full px-4 py-3 rounded-xl text-white">
+                        <label class="block text-xs text-zinc-400 mb-2 font-semibold">Header Message</label>
+                        <input type="text" id="testMsg" value="Cloud Active!" class="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 focus:border-blue-500 outline-none transition">
                     </div>
 
-                    <div>
-                        <label class="block text-sm mb-2 text-zinc-300">Log Expiry (Seconds)</label>
-                        <input type="number" id="expiry" value="60" class="input-box w-full px-4 py-3 rounded-xl text-white">
+                    <div class="flex items-center justify-between p-4 bg-black/50 border border-zinc-800 rounded-xl">
+                        <span class="text-sm font-medium">Auto-Joiner Toggle</span>
+                        <input type="checkbox" id="ajToggle" class="w-5 h-5 accent-blue-500">
                     </div>
 
-                    <div>
-                        <label class="block text-sm mb-2 text-zinc-300">Testing Header Message</label>
-                        <input type="text" id="testMsg" value="Connected to ijscamengl!" class="input-box w-full px-4 py-3 rounded-xl text-white">
-                    </div>
-
-                    <div class="flex items-center justify-between p-4 card rounded-xl">
-                        <span class="text-sm font-medium">Auto-Joiner Status</span>
-                        <input type="checkbox" id="ajToggle" class="w-6 h-6 accent-blue-500 cursor-pointer">
-                    </div>
-
-                    <button id="saveBtn" class="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-zinc-200 transition uppercase tracking-wide">Save Configuration</button>
-                    <p id="status" class="text-center text-xs font-medium text-blue-400 status-msg h-4"></p>
+                    <button id="saveBtn" class="w-full bg-white text-black font-black py-4 rounded-xl hover:bg-zinc-200 transition uppercase text-sm tracking-widest">Sync to Roblox</button>
+                    <p id="status" class="text-center text-xs font-bold text-blue-400 min-h-[1em]"></p>
                 </div>
             </div>
-
-            <div class="text-center">
-                <p class="text-zinc-600 text-[10px] uppercase tracking-widest">Public API Key for Roblox Sync:</p>
-                <code id="userKeyDisplay" class="text-zinc-400 text-xs bg-zinc-900 px-2 py-1 rounded mt-2 inline-block">Login to view key</code>
+            
+            <div class="text-center space-y-2">
+                <p class="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Your Roblox Sync ID:</p>
+                <code id="userKeyDisplay" class="bg-black px-3 py-1 rounded border border-zinc-800 text-blue-400 text-xs font-mono">Loading ID...</code>
             </div>
         </div>
 
-        <div id="loginPrompt" class="text-center mt-20">
-            <p class="text-zinc-500 text-lg">Please authorize with Discord to manage your script.</p>
-            <p class="text-zinc-700 text-sm mt-2">Your settings will automatically sync with Roblox.</p>
+        <div id="loginPrompt" class="text-center py-20">
+            <p class="text-zinc-500 font-medium">Please login to access your dashboard.</p>
         </div>
     </div>
 
     <script>
-        // --- YOUR UNIQUE SUPABASE CONFIG ---
         const SB_URL = "https://riahwqxjgfxwskypnsxs.supabase.co";
         const SB_KEY = "sb_publishable_7pGP3l7rkLG31QEg6WC_2w_END7EKMt";
         const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
@@ -75,15 +54,14 @@
         const dashboard = document.getElementById('dashboard');
         const loginPrompt = document.getElementById('loginPrompt');
         const userKeyDisplay = document.getElementById('userKeyDisplay');
+        const status = document.getElementById('status');
 
-        // --- AUTHENTICATION ---
         authBtn.onclick = async () => {
             const { data: { user } } = await supabaseClient.auth.getUser();
             if (user) {
                 await supabaseClient.auth.signOut();
                 location.reload();
             } else {
-                // Forces redirect back to your specific GitHub page
                 await supabaseClient.auth.signInWithOAuth({ 
                     provider: 'discord',
                     options: { redirectTo: "https://ijscamengl.github.io/" }
@@ -91,54 +69,47 @@
             }
         };
 
-        async function checkUser() {
+        async function init() {
             const { data: { user } } = await supabaseClient.auth.getUser();
             if (user) {
                 authBtn.innerText = "Logout";
                 dashboard.classList.remove('hidden');
                 loginPrompt.classList.add('hidden');
-                userKeyDisplay.innerText = user.id; // This is the ID you put in your Roblox script
-                loadSettings(user.id);
-            }
-        }
-
-        // --- DATA HANDLING ---
-        async function loadSettings(uid) {
-            let { data, error } = await supabaseClient.from('configs').select('*').eq('id', uid).single();
-            if (data) {
-                document.getElementById('threshold').value = data.threshold;
-                document.getElementById('expiry').value = data.expiry;
-                document.getElementById('testMsg').value = data.message;
-                document.getElementById('ajToggle').checked = data.enabled;
+                userKeyDisplay.innerText = user.id;
+                
+                // Fetch existing data
+                let { data } = await supabaseClient.from('configs').select('*').eq('id', user.id).single();
+                if (data) {
+                    document.getElementById('testMsg').value = data.message || "";
+                    document.getElementById('ajToggle').checked = data.enabled || false;
+                }
             }
         }
 
         document.getElementById('saveBtn').onclick = async () => {
             const { data: { user } } = await supabaseClient.auth.getUser();
-            const status = document.getElementById('status');
-            
-            status.innerText = "Saving...";
+            if (!user) return alert("Please login first!");
+
+            status.innerText = "SYNCING...";
             
             const { error } = await supabaseClient.from('configs').upsert({
                 id: user.id,
-                threshold: parseInt(document.getElementById('threshold').value),
-                expiry: parseInt(document.getElementById('expiry').value),
                 message: document.getElementById('testMsg').value,
-                enabled: document.getElementById('ajToggle').checked
+                enabled: document.getElementById('ajToggle').checked,
+                threshold: 500000000, // default
+                expiry: 60 // default
             });
 
             if (error) {
-                status.innerText = "Error: " + error.message;
-                status.classList.add('text-red-500');
+                status.innerText = "ERROR: " + error.message;
+                console.error(error);
             } else {
-                status.innerText = "Settings successfully synced to Roblox!";
-                status.classList.remove('text-red-500');
+                status.innerText = "✅ SYNCED TO CLOUD!";
+                setTimeout(() => { status.innerText = ""; }, 3000);
             }
-            
-            setTimeout(() => { status.innerText = ""; }, 4000);
         };
 
-        checkUser();
+        init();
     </script>
 </body>
 </html>
