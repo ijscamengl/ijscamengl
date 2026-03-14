@@ -7,9 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        body { background-color: #0d0d0f; color: #f4f4f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0d0d0f; color: #f4f4f5; font-family: 'Inter', sans-serif; }
         .card { background: #16161a; border: 1px solid #27272a; }
-        .input-box { background: #09090b; border: 1px solid #27272a; transition: border 0.2s; }
+        .input-box { background: #09090b; border: 1px solid #27272a; }
         .input-box:focus { border-color: #3b82f6; outline: none; }
     </style>
 </head>
@@ -23,68 +23,67 @@
         <div id="dashboard" class="hidden space-y-6">
             <div class="card p-8 rounded-2xl">
                 <h2 class="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-6">Script Configuration</h2>
-                
                 <div class="grid gap-6">
                     <div>
                         <label class="block text-sm mb-2">AutoJoin Threshold ($)</label>
-                        <input type="number" id="threshold" class="input-box w-full px-4 py-3 rounded-xl text-white">
+                        <input type="number" id="threshold" value="500000000" class="input-box w-full px-4 py-3 rounded-xl text-white">
                     </div>
-
                     <div>
                         <label class="block text-sm mb-2">Log Expiry (Seconds)</label>
-                        <input type="number" id="expiry" class="input-box w-full px-4 py-3 rounded-xl text-white">
+                        <input type="number" id="expiry" value="60" class="input-box w-full px-4 py-3 rounded-xl text-white">
                     </div>
-
                     <div>
                         <label class="block text-sm mb-2">Testing Header Message</label>
-                        <input type="text" id="testMsg" class="input-box w-full px-4 py-3 rounded-xl text-white">
+                        <input type="text" id="testMsg" value="Connected!" class="input-box w-full px-4 py-3 rounded-xl text-white">
                     </div>
-
                     <div class="flex items-center justify-between p-4 card rounded-xl">
                         <span class="text-sm">Auto-Joiner Status</span>
                         <input type="checkbox" id="ajToggle" class="w-5 h-5 accent-blue-500">
                     </div>
-
                     <button id="saveBtn" class="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-zinc-200 transition">SAVE SETTINGS</button>
                     <p id="status" class="text-center text-xs text-zinc-500"></p>
                 </div>
             </div>
         </div>
-
         <div id="loginPrompt" class="text-center mt-20">
             <p class="text-zinc-500">Please authorize with Discord to manage your script.</p>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        const SB_URL = "YOUR_SUPABASE_URL";
-        const SB_KEY = "YOUR_SUPABASE_ANON_KEY";
-        const supabase = nominations.createClient(SB_URL, SB_KEY);
+        const SB_URL = "https://riahwqxjgfxwskypnsxs.supabase.co";
+        const SB_KEY = "sb_publishable_7pGP3l7rkLG31QEg6WC_2w_END7EKMt";
+        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
         const authBtn = document.getElementById('authBtn');
         const dashboard = document.getElementById('dashboard');
         const loginPrompt = document.getElementById('loginPrompt');
 
-        // --- AUTH LOGIC ---
         authBtn.onclick = async () => {
-            const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'discord' });
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (user) {
+                await supabaseClient.auth.signOut();
+                location.reload();
+            } else {
+                await supabaseClient.auth.signInWithOAuth({ 
+                    provider: 'discord',
+                    options: { redirectTo: window.location.origin }
+                });
+            }
         };
 
         async function checkUser() {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await supabaseClient.auth.getUser();
             if (user) {
                 authBtn.innerText = "Logout";
-                authBtn.onclick = () => supabase.auth.signOut().then(() => location.reload());
                 dashboard.classList.remove('hidden');
                 loginPrompt.classList.add('hidden');
                 loadSettings(user.id);
             }
         }
 
-        // --- DATA LOGIC ---
         async function loadSettings(uid) {
-            let { data } = await supabase.from('configs').select('*').eq('id', uid).single();
+            let { data } = await supabaseClient.from('configs').select('*').eq('id', uid).single();
             if (data) {
                 document.getElementById('threshold').value = data.threshold;
                 document.getElementById('expiry').value = data.expiry;
@@ -94,21 +93,18 @@
         }
 
         document.getElementById('saveBtn').onclick = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await supabaseClient.auth.getUser();
             const status = document.getElementById('status');
-            
-            const { error } = await supabase.from('configs').upsert({
+            const { error } = await supabaseClient.from('configs').upsert({
                 id: user.id,
-                threshold: document.getElementById('threshold').value,
-                expiry: document.getElementById('expiry').value,
+                threshold: parseInt(document.getElementById('threshold').value),
+                expiry: parseInt(document.getElementById('expiry').value),
                 message: document.getElementById('testMsg').value,
                 enabled: document.getElementById('ajToggle').checked
             });
-
-            status.innerText = error ? "Error saving!" : "Settings saved successfully!";
+            status.innerText = error ? "Error: " + error.message : "Settings saved!";
             setTimeout(() => status.innerText = "", 3000);
         };
-
         checkUser();
     </script>
 </body>
