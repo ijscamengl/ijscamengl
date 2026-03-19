@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tik</title>
+    <title>TikTok Clone - Final Bypass</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -31,17 +31,17 @@
             <button id="loginBtn" onclick="loginWithDiscord()" class="bg-[#fe2c55] text-white px-5 py-1.5 rounded font-bold text-sm">Log in</button>
             <div id="userProfile" class="hidden flex items-center space-x-3">
                 <img id="userAvatar" src="" class="w-8 h-8 rounded-full border">
-                <button onclick="logout()" class="text-xs text-gray-400 hover:text-black italic">Logout</button>
+                <button onclick="logout()" class="text-xs text-gray-400">Logout</button>
             </div>
         </div>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
         <aside class="w-64 border-r p-4 hidden lg:block">
-            <nav class="space-y-6">
-                <div class="text-[#fe2c55] font-bold text-xl flex items-center gap-3"><i class="fas fa-home"></i> For You</div>
-                <div class="text-gray-700 font-bold text-xl flex items-center gap-3 cursor-pointer"><i class="far fa-compass"></i> Explore</div>
-                <div class="text-gray-700 font-bold text-xl flex items-center gap-3 cursor-pointer"><i class="fas fa-user-friends"></i> Friends</div>
+            <nav class="space-y-6 text-gray-700 font-bold text-xl">
+                <div class="text-[#fe2c55] flex items-center gap-3"><i class="fas fa-home"></i> For You</div>
+                <div class="flex items-center gap-3 cursor-pointer"><i class="far fa-compass"></i> Explore</div>
+                <div class="flex items-center gap-3 cursor-pointer"><i class="fas fa-user-friends"></i> Friends</div>
             </nav>
         </aside>
 
@@ -52,21 +52,20 @@
 
     <script>
         const SUPABASE_URL = 'https://riahwqxjgfxwskypnsxs.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpYWh3cXhqZ2Z4d3NreXBuc3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0OTY5OTgsImV4cCI6MjA4OTA3Mjk5OH0.rTgRS8G1LU7oKkvFicizAUxPCryFUIyPV1vSCHR88ZY';
+        const SUPABASE_KEY = 'sb_publishable_7pGP3l7rkLG31QEg6WC_2w_END7EKMt';
         const CLIENT_ID = '1484189679762014352';
-        const REDIRECT_URI = 'https://ijscamengl.github.io/ijscamengl/';
+        // BYPASS: Automatically detects if you are on localhost or GitHub Pages
+        const REDIRECT_URI = window.location.origin + window.location.pathname; 
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function init() {
-            const hash = window.location.hash.slice(1);
-            const params = new URLSearchParams(hash);
+            const params = new URLSearchParams(window.location.hash.slice(1));
             const token = params.get('access_token');
 
             if (token) {
                 const res = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token}` } });
-                const user = await res.json();
-                localStorage.setItem('tiktok_user', JSON.stringify(user));
+                localStorage.setItem('tiktok_user', JSON.stringify(await res.json()));
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
 
@@ -77,40 +76,27 @@
                 document.getElementById('userProfile').classList.remove('hidden');
                 document.getElementById('userAvatar').src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
             }
-            loadVideos();
+            loadVideos(); // Always load for everyone
         }
 
         async function loadVideos() {
+            const { data, error } = await supabaseClient.from('posts').select('*').order('created_at', { ascending: false });
             const feed = document.getElementById('feed');
-            const currentUser = JSON.parse(localStorage.getItem('tiktok_user'));
             
-            const { data: posts, error } = await supabaseClient.from('posts').select('*').order('created_at', { ascending: false });
-            
-            if (error || !posts || posts.length === 0) {
+            if (error || !data || data.length === 0) {
                 feed.innerHTML = '<div class="h-full flex items-center text-gray-400">No videos yet!</div>';
                 return;
             }
 
-            feed.innerHTML = posts.map(post => {
-                // Show delete button only if you are the uploader
-                const isOwner = currentUser && currentUser.username === post.username;
-                return `
+            feed.innerHTML = data.map(post => `
                 <div class="video-card w-full max-w-[480px] py-10">
                     <div class="relative h-full aspect-[9/16] bg-black rounded-xl overflow-hidden shadow-2xl flex items-center">
                         <video src="${post.video_url}" class="w-full h-full object-cover" loop controls></video>
-                        <div class="absolute bottom-6 left-4 text-white z-10 pr-10">
-                            <p class="font-bold text-lg">@${post.username}</p>
-                            <p class="text-sm">Video description #fyp</p>
+                        <div class="absolute bottom-6 left-4 text-white z-10">
+                            <p class="font-bold">@${post.username}</p>
                         </div>
                     </div>
-                    <div class="flex flex-col ml-4 space-y-6 items-center self-end mb-12">
-                        <img src="${post.avatar}" class="w-12 h-12 rounded-full border-2 border-white">
-                        <div class="text-center cursor-pointer"><i class="fas fa-heart text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
-                        <div class="text-center cursor-pointer"><i class="fas fa-comment-dots text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
-                        ${isOwner ? `<button onclick="deletePost('${post.id}')" class="text-red-500 hover:text-red-700"><i class="fas fa-trash-alt text-xl"></i></button>` : ''}
-                    </div>
-                </div>`;
-            }).join('');
+                </div>`).join('');
         }
 
         async function handleUpload(event) {
@@ -119,20 +105,21 @@
             if (!user) return alert("Please login with Discord to upload!");
             if (!file) return;
 
-            const status = document.getElementById('uploadStatus');
             const bar = document.getElementById('progressBar');
-            status.classList.remove('hidden');
-            bar.style.width = '30%';
+            document.getElementById('uploadStatus').classList.remove('hidden');
+            bar.style.width = '20%';
 
             const fileName = `${Date.now()}-${file.name}`;
             
             try {
-                const { data, error: uploadErr } = await supabaseClient.storage.from('videos').upload(fileName, file);
-                if (uploadErr) throw uploadErr;
+                // 1. Storage Bypass: Ensure bucket is PUBLIC in Supabase
+                const { error: upErr } = await supabaseClient.storage.from('videos').upload(fileName, file);
+                if (upErr) throw upErr;
                 
-                bar.style.width = '70%';
+                bar.style.width = '60%';
                 const { data: { publicUrl } } = supabaseClient.storage.from('videos').getPublicUrl(fileName);
 
+                // 2. Database Bypass: Ensure RLS is DISABLED in Supabase
                 const { error: dbErr } = await supabaseClient.from('posts').insert([{
                     video_url: publicUrl,
                     username: user.username,
@@ -143,16 +130,9 @@
                 bar.style.width = '100%';
                 setTimeout(() => window.location.reload(), 500);
             } catch (err) {
-                alert("Upload failed: " + err.message);
-                status.classList.add('hidden');
+                alert("Error: " + err.message);
+                document.getElementById('uploadStatus').classList.add('hidden');
             }
-        }
-
-        async function deletePost(id) {
-            if (!confirm("Delete this video?")) return;
-            const { error } = await supabaseClient.from('posts').delete().eq('id', id);
-            if (error) alert("Error deleting: " + error.message);
-            else window.location.reload();
         }
 
         function loginWithDiscord() {
