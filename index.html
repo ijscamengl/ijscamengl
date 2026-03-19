@@ -20,19 +20,19 @@
 <body class="flex flex-col h-screen">
 
     <header class="h-16 border-b border-gray-200 flex items-center justify-between px-6 shrink-0 z-50 bg-white">
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center">
             <img src="https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg" class="h-7" alt="TikTok">
         </div>
         
-        <div id="uploadStatus" class="hidden flex-1 max-w-xs mx-4">
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div id="progressBar" class="bg-[#fe2c55] h-2 rounded-full" style="width: 0%"></div>
+        <div id="uploadStatus" class="hidden flex-1 max-w-xs mx-8">
+            <div class="w-full bg-gray-200 rounded-full h-1.5">
+                <div id="progressBar" class="bg-[#fe2c55] h-1.5 rounded-full" style="width: 0%"></div>
             </div>
-            <p class="text-[10px] text-center mt-1 font-bold text-[#fe2c55]">UPLOADING...</p>
+            <p id="statusText" class="text-[10px] text-center mt-1 font-bold text-[#fe2c55] uppercase tracking-widest">Uploading...</p>
         </div>
 
         <div class="flex items-center space-x-3">
-            <button onclick="document.getElementById('fileInput').click()" class="flex items-center space-x-1.5 text-sm font-bold text-gray-800 hover:bg-gray-100 px-3 py-1.5 rounded border border-gray-200">
+            <button onclick="document.getElementById('fileInput').click()" class="flex items-center space-x-2 text-sm font-bold text-gray-800 hover:bg-gray-100 px-4 py-1.5 rounded border border-gray-200">
                 <i class="fas fa-plus"></i> <span>Upload</span>
             </button>
             <input type="file" id="fileInput" class="hidden" accept="video/*" onchange="handleUpload(event)">
@@ -40,8 +40,8 @@
             <button id="loginBtn" onclick="loginWithDiscord()" class="bg-[#fe2c55] text-white px-5 py-1.5 rounded font-bold text-sm">Log in</button>
             
             <div id="userProfile" class="hidden flex items-center space-x-3">
-                <img id="userAvatar" src="" class="w-8 h-8 rounded-full border border-gray-200">
-                <button onclick="logout()" class="text-xs text-gray-400 hover:text-black underline">Logout</button>
+                <img id="userAvatar" src="" class="w-8 h-8 rounded-full border border-gray-200 object-cover">
+                <button onclick="logout()" class="text-xs text-gray-400 hover:text-black">Logout</button>
             </div>
         </div>
     </header>
@@ -62,13 +62,16 @@
         </aside>
 
         <main id="feed" class="flex-1 feed-container bg-white flex flex-col items-center">
-            <div class="h-full flex items-center text-gray-400 font-bold">Loading For You Page...</div>
+            <div id="loader" class="h-full flex flex-col items-center justify-center text-gray-400 space-y-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fe2c55]"></div>
+                <p class="font-bold">Loading videos...</p>
+            </div>
         </main>
     </div>
 
     <script>
         const SUPABASE_URL = 'https://riahwqxjgfxwskypnsxs.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_7pGP3l7rkLG31QEg6WC_2w_END7EKMt'; 
+        const SUPABASE_KEY = 'YOUR_ANON_KEY_HERE'; // <--- PASTE YOUR ANON KEY HERE
         const CLIENT_ID = '1484189679762014352';
         const REDIRECT_URI = 'https://ijscamengl.github.io/ijscamengl/';
 
@@ -80,17 +83,22 @@
         }
 
         async function init() {
+            // Handle redirect token
             const hash = window.location.hash.slice(1);
             const params = new URLSearchParams(hash);
             const token = params.get('access_token');
 
             if (token) {
-                const res = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token}` } });
-                const user = await res.json();
-                localStorage.setItem('tiktok_user', JSON.stringify(user));
-                window.history.replaceState({}, document.title, window.location.pathname);
+                try {
+                    const res = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token}` } });
+                    const user = await res.json();
+                    localStorage.setItem('tiktok_user', JSON.stringify(user));
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (e) { console.error("Login Error", e); }
             }
 
+            // Check Persistence
             const savedUser = localStorage.getItem('tiktok_user');
             if (savedUser) {
                 const user = JSON.parse(savedUser);
@@ -106,8 +114,13 @@
             const { data: posts, error } = await supabaseClient.from('posts').select('*').order('created_at', { ascending: false });
             const feed = document.getElementById('feed');
             
+            if (error) {
+                feed.innerHTML = `<div class="p-10 text-red-500">Error loading feed: ${error.message}</div>`;
+                return;
+            }
+
             if (!posts || posts.length === 0) {
-                feed.innerHTML = '<div class="h-full flex flex-col items-center justify-center text-gray-400"><i class="fas fa-video-slash text-4xl mb-2"></i><p>No videos yet!</p></div>';
+                feed.innerHTML = '<div class="h-full flex flex-col items-center justify-center text-gray-400 font-bold"><i class="fas fa-video-slash text-4xl mb-2"></i><p>No videos yet!</p></div>';
                 return;
             }
 
@@ -121,11 +134,11 @@
                         </div>
                     </div>
                     <div class="flex flex-col ml-4 space-y-5 items-center self-end mb-12">
-                        <img src="${post.avatar || 'https://via.placeholder.com/50'}" class="w-12 h-12 rounded-full border-2 border-white">
-                        <div class="text-center"><i class="fas fa-heart text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
-                        <div class="text-center"><i class="fas fa-comment-dots text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
-                        <div class="text-center"><i class="fas fa-bookmark text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
-                        <div class="text-center"><i class="fas fa-share text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
+                        <img src="${post.avatar || 'https://via.placeholder.com/50'}" class="w-12 h-12 rounded-full border-2 border-white shadow-md">
+                        <div class="text-center cursor-pointer"><i class="fas fa-heart text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
+                        <div class="text-center cursor-pointer"><i class="fas fa-comment-dots text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
+                        <div class="text-center cursor-pointer"><i class="fas fa-bookmark text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
+                        <div class="text-center cursor-pointer"><i class="fas fa-share text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
                     </div>
                 </div>
             `).join('');
@@ -134,47 +147,57 @@
         async function handleUpload(event) {
             const file = event.target.files[0];
             const user = JSON.parse(localStorage.getItem('tiktok_user'));
-            if (!user) return alert("Please log in with Discord first!");
+            
+            if (!user) {
+                alert("Please log in with Discord first!");
+                return;
+            }
             if (!file) return;
 
             const status = document.getElementById('uploadStatus');
             const bar = document.getElementById('progressBar');
-            status.classList.remove('hidden');
+            const text = document.getElementById('statusText');
             
-            // Artificial progress bar (Supabase JS doesn't expose native XHR progress easily)
-            let progress = 0;
-            const interval = setInterval(() => {
-                if (progress < 90) progress += 5;
-                bar.style.width = progress + '%';
-            }, 200);
+            status.classList.remove('hidden');
+            bar.style.width = '10%';
+            text.innerText = "Connecting...";
 
             const fileName = `${Date.now()}-${file.name}`;
             
-            // 1. Upload to Storage
-            const { data, error: uploadErr } = await supabaseClient.storage.from('videos').upload(fileName, file);
-            
-            if (uploadErr) {
-                clearInterval(interval);
-                alert("Upload failed: " + uploadErr.message);
+            try {
+                // 1. Storage Upload
+                text.innerText = "Uploading Video File...";
+                const { data, error: uploadErr } = await supabaseClient.storage.from('videos').upload(fileName, file);
+                if (uploadErr) throw uploadErr;
+                
+                bar.style.width = '60%';
+                text.innerText = "Processing URL...";
+
+                // 2. Metadata Save
+                const { data: { publicUrl } } = supabaseClient.storage.from('videos').getPublicUrl(fileName);
+
+                text.innerText = "Saving to Feed...";
+                const { error: dbErr } = await supabaseClient.from('posts').insert([{
+                    video_url: publicUrl,
+                    username: user.username,
+                    avatar: `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+                }]);
+                
+                if (dbErr) throw dbErr;
+
+                bar.style.width = '100%';
+                text.innerText = "Success!";
+                
+                setTimeout(() => {
+                    status.classList.add('hidden');
+                    window.location.reload();
+                }, 800);
+
+            } catch (err) {
+                console.error(err);
+                alert("Upload failed: " + err.message + "\n\nTip: Make sure you ran the SQL Editor fix in Supabase!");
                 status.classList.add('hidden');
-                return;
             }
-
-            // 2. Get URL and Save to Table
-            const { data: { publicUrl } } = supabaseClient.storage.from('videos').getPublicUrl(fileName);
-
-            await supabaseClient.from('posts').insert([{
-                video_url: publicUrl,
-                username: user.username,
-                avatar: `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-            }]);
-
-            clearInterval(interval);
-            bar.style.width = '100%';
-            setTimeout(() => {
-                status.classList.add('hidden');
-                window.location.reload();
-            }, 800);
         }
 
         function logout() {
