@@ -2,253 +2,150 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GlassOS Black</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok - Make Your Day</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root {
-            --glass: rgba(255, 255, 255, 0.05);
-            --border: rgba(255, 255, 255, 0.1);
-            --accent: #0A84FF;
-            --system-gray: #1C1C1E;
-        }
-
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-        body {
-            margin: 0;
-            height: 100vh;
-            background-color: #000; /* Pure Black Background */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-            overflow: hidden;
-            color: white;
-        }
-
-        /* Main iPhone-style Container */
-        .container {
-            width: 375px;
-            height: 812px;
-            background: #000;
-            border: 1px solid var(--border);
-            border-radius: 44px;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 0 20px rgba(255,255,255,0.05);
-            overflow: hidden;
-        }
-
-        /* The Tab Box at the Top (Dynamic Island style) */
-        .tab-box {
-            width: 220px;
-            height: 38px;
-            background: #1c1c1e;
-            margin: 15px auto;
-            border-radius: 20px;
-            display: flex;
-            justify-content: space-evenly;
-            align-items: center;
-            padding: 0 10px;
-            border: 0.5px solid rgba(255,255,255,0.1);
-            z-index: 1000;
-        }
-
-        .tab {
-            font-size: 12px;
-            color: #8e8e93;
-            cursor: pointer;
-            font-weight: 500;
-            transition: color 0.2s;
-            padding: 5px 10px;
-        }
-
-        .tab.active {
-            color: white;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-        }
-
-        /* Content Sections */
-        .view {
-            flex: 1;
-            padding: 25px;
-            display: none;
-            flex-direction: column;
-            animation: slideUp 0.3s ease-out;
-        }
-
-        .view.active { display: flex; }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Webhook & Chat UI Elements */
-        h2 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
-
-        .glass-card {
-            background: var(--glass);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 14px;
-            background: #1c1c1e;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            color: white;
-            outline: none;
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
-
-        .action-btn {
-            width: 100%;
-            padding: 14px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .action-btn:active { opacity: 0.7; }
-
-        #chat-log {
-            flex: 1;
-            background: #000;
-            border: 1px solid var(--border);
-            border-radius: 15px;
-            padding: 10px;
-            margin-bottom: 10px;
-            overflow-y: auto;
-            font-size: 13px;
-        }
-
-        .status-dot {
-            height: 8px;
-            width: 8px;
-            background-color: #32d74b;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }
+        body { background-color: white; font-family: 'proxima-nova', sans-serif; overflow: hidden; }
+        .sidebar-item:hover { background-color: rgba(22, 24, 35, 0.03); }
+        .active-tab { color: #fe2c55; }
+        .video-container { height: calc(100vh - 80px); }
+        /* Custom scrollbar for sidebar */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #e3e3e3; border-radius: 10px; }
     </style>
 </head>
-<body>
+<body class="flex flex-col h-screen">
 
-<div class="container">
-    <div class="tab-box">
-        <div class="tab active" onclick="nav('chat')">Chat</div>
-        <div class="tab" onclick="nav('hook')">Webhook</div>
-        <div class="tab" onclick="nav('info')">Info</div>
-    </div>
-
-    <div id="chat" class="view active">
-        <h2>Messages</h2>
-        <div id="chat-log">
-            <div style="color: #8e8e93; margin-bottom: 10px;">
-                <span class="status-dot"></span> System: Local session started.
+    <header class="h-16 border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
+        <div class="flex items-center space-x-2">
+            <svg width="118" height="42" viewBox="0 0 118 42"><path d="M94.1 20.9c-4.1 0-7.3 3.1-7.3 7.2s3.2 7.2 7.3 7.2c4.1 0 7.3-3.1 7.3-7.2s-3.2-7.2-7.3-7.2zm0 11.2c-2.2 0-3.9-1.8-3.9-4s1.7-4 3.9-4 3.9 1.8 3.9 4-1.7 4-3.9 4zM76.4 21.2v13.8h-3.4V21.2h3.4zm-1.7-5.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zM57.6 21.2v13.8h-3.4V21.2h3.4zm-1.7-5.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zM41.7 13.1c-1.1 0-2.1.2-3.1.5V35h-3.4V7h3.4v4.5c.9-.9 2.1-1.4 3.4-1.4.2 0 .4 0 .6.1v3c-.3-.1-.6-.1-.9-.1zM23.1 21.2v13.8h-3.4V21.2h3.4zm-1.7-5.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zM5.3 11.8v23.2H1.9V11.8h3.4zm-1.7-6.2c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"></path></svg>
+        </div>
+        
+        <div class="relative w-1/3">
+            <input type="text" placeholder="Search" class="w-full bg-gray-100 rounded-full py-2.5 px-4 outline-none border border-transparent focus:border-gray-300">
+            <div class="absolute right-0 top-0 h-full w-12 flex items-center justify-center border-l border-gray-200 text-gray-400 hover:bg-gray-200 rounded-r-full cursor-pointer">
+                <i class="fas fa-search"></i>
             </div>
         </div>
-        <input type="text" id="msg-input" placeholder="Type a message...">
-        <button class="action-btn" onclick="sendMsg()">Send Message</button>
-    </div>
 
-    <div id="hook" class="view">
-        <h2>Webhook Tool</h2>
-        <div class="glass-card">
-            <label style="font-size: 12px; color: #8e8e93;">Target URL</label>
-            <input type="text" id="target-url" placeholder="https://discord.com/api/webhooks/...">
-            
-            <label style="font-size: 12px; color: #8e8e93;">Action Type</label>
-            <select id="action-type">
-                <option value="scam">Scam Warning</option>
-                <option value="test">Connectivity Test</option>
-            </select>
-            
-            <button class="action-btn" onclick="runHook()" style="background: #32d74b;">Connect & Execute</button>
+        <div class="flex items-center space-x-4">
+            <button class="flex items-center space-x-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 px-4 py-2 rounded border border-gray-200">
+                <span>Get Coins</span>
+            </button>
+            <button class="text-sm font-semibold text-gray-800">Get App</button>
+            <button class="text-sm font-semibold text-gray-800">PC App</button>
+            <div class="w-8 h-8 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
+                <img src="https://via.placeholder.com/32" alt="Profile">
+            </div>
         </div>
-        <p style="font-size: 11px; color: #ff453a; text-align: center;">
-            Warning: This tool is strictly for authorized testing.
-        </p>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <aside class="w-60 custom-scroll overflow-y-auto px-2 py-4 border-r border-gray-100 shrink-0">
+            <nav class="space-y-1">
+                <a href="#" class="sidebar-item active-tab flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg">
+                    <i class="fas fa-home w-6"></i> <span>For You</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700">
+                    <i class="far fa-compass w-6"></i> <span>Explore</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700">
+                    <i class="fas fa-user-friends w-6"></i> <span>Following</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700">
+                    <i class="fas fa-users w-6"></i> <span>Friends</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700">
+                    <i class="fas fa-video w-6"></i> <span>LIVE</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700">
+                    <i class="far fa-paper-plane w-6"></i> <span>Messages</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700 relative">
+                    <i class="far fa-bell w-6"></i> <span>Activity</span>
+                    <span class="absolute top-2 left-6 bg-[#fe2c55] text-white text-[10px] px-1 rounded-full">26</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700">
+                    <i class="far fa-plus-square w-6"></i> <span>Upload</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700">
+                    <i class="far fa-user w-6"></i> <span>Profile</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg font-bold text-lg text-gray-700">
+                    <i class="fas fa-ellipsis-h w-6"></i> <span>More</span>
+                </a>
+            </nav>
+            <div class="mt-8 px-3">
+                <p class="text-xs font-semibold text-gray-500 mb-4">Following accounts</p>
+                </div>
+        </aside>
+
+        <main class="flex-1 flex justify-center items-center bg-black relative">
+            <div class="video-container relative flex items-center">
+                <div class="rounded-xl overflow-hidden shadow-2xl bg-gray-900 border border-gray-800" style="aspect-ratio: 9/16; height: 90%;">
+                    <div class="w-full h-full bg-gradient-to-t from-purple-900 via-indigo-900 to-black flex items-center justify-center relative">
+                         <div class="absolute bottom-4 left-4 text-white z-10 w-full pr-12">
+                            <div class="bg-black/40 p-2 rounded-md inline-flex items-center space-x-1 mb-2">
+                                <span class="text-xs font-bold">CapCut · Editing made easy</span>
+                            </div>
+                            <h2 class="font-bold">fuze7zz</h2>
+                            <p class="text-sm">RIP 🪦 🕊️ #fortnite #nostalgia #foryou ... <span class="font-bold">more</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center ml-4 space-y-4">
+                    <div class="relative mb-2">
+                        <div class="w-12 h-12 rounded-full border-2 border-white overflow-hidden bg-gray-500">
+                            <img src="https://via.placeholder.com/48" alt="Creator">
+                        </div>
+                        <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#fe2c55] text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                            <i class="fas fa-plus"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-gray-100/10 flex items-center justify-center text-white text-xl cursor-pointer hover:bg-gray-100/20">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <span class="text-white text-xs font-semibold mt-1">136.9K</span>
+                    </div>
+
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-gray-100/10 flex items-center justify-center text-white text-xl cursor-pointer hover:bg-gray-100/20">
+                            <i class="fas fa-comment-dots"></i>
+                        </div>
+                        <span class="text-white text-xs font-semibold mt-1">1611</span>
+                    </div>
+
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-gray-100/10 flex items-center justify-center text-white text-xl cursor-pointer hover:bg-gray-100/20">
+                            <i class="fas fa-bookmark"></i>
+                        </div>
+                        <span class="text-white text-xs font-semibold mt-1">21.1K</span>
+                    </div>
+
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full bg-gray-100/10 flex items-center justify-center text-white text-xl cursor-pointer hover:bg-gray-100/20">
+                            <i class="fas fa-share"></i>
+                        </div>
+                        <span class="text-white text-xs font-semibold mt-1">16.7K</span>
+                    </div>
+                </div>
+
+                <div class="absolute right-[-80px] flex flex-col space-y-2">
+                    <button class="w-10 h-10 rounded-full bg-gray-100/10 flex items-center justify-center text-white hover:bg-gray-100/20 border border-gray-600">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                    <button class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-black hover:bg-gray-200">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
     </div>
-
-    <div id="info" class="view">
-        <h2>Information</h2>
-        <div class="glass-card">
-            <p><strong>Status:</strong> Online</p>
-            <p><strong>Environment:</strong> GitHub Static</p>
-            <p style="font-size: 12px; margin-top: 20px;">
-                This interface is designed to combat malicious webhooks by sending automated warnings to scammers.
-            </p>
-        </div>
-        <button class="action-btn" onclick="location.reload()" style="background: #1c1c1e;">Restart System</button>
-    </div>
-</div>
-
-<script>
-    // Tab Navigation logic
-    function nav(id) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        
-        document.getElementById(id).classList.add('active');
-        event.currentTarget.classList.add('active');
-    }
-
-    // Local Chat function
-    function sendMsg() {
-        const input = document.getElementById('msg-input');
-        const log = document.getElementById('chat-log');
-        if(!input.value.trim()) return;
-
-        const entry = document.createElement('div');
-        entry.style.marginBottom = "8px";
-        entry.innerHTML = `<span style="color:var(--accent)">You:</span> ${input.value}`;
-        log.appendChild(entry);
-        
-        input.value = "";
-        log.scrollTop = log.scrollHeight;
-    }
-
-    // Webhook Execution
-    async function runHook() {
-        const url = document.getElementById('target-url').value;
-        const type = document.getElementById('action-type').value;
-
-        if(!url.startsWith('http')) {
-            alert("Please enter a valid URL.");
-            return;
-        }
-
-        const msg = type === 'scam' 
-            ? "⚠️ ALERT: This webhook has been flagged for scamming activity." 
-            : "Connection Test: Webhook active.";
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: msg })
-            });
-
-            if(response.ok) alert("Command Sent Successfully!");
-            else alert("Error: Webhook rejected the request.");
-        } catch(e) {
-            alert("Network Error: Ensure the URL is correct and allows browser requests.");
-        }
-    }
-</script>
 
 </body>
 </html>
