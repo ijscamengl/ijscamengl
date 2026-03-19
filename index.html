@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TikTok - Make Your Day</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { background-color: white; font-family: 'proxima-nova', sans-serif; overflow: hidden; }
@@ -13,6 +14,7 @@
         .feed-container { height: calc(100vh - 64px); scroll-snap-type: y mandatory; overflow-y: scroll; scrollbar-width: none; }
         .video-card { height: calc(100vh - 64px); scroll-snap-align: start; }
         .feed-container::-webkit-scrollbar { display: none; }
+        #progressBar { transition: width 0.3s ease; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -22,24 +24,24 @@
             <img src="https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg" class="h-7" alt="TikTok">
         </div>
         
-        <div class="relative w-[360px] hidden md:block">
-            <input type="text" placeholder="Search" class="w-full bg-[#f1f1f2] rounded-full py-2.5 px-4 outline-none border border-transparent focus:border-gray-300 text-sm">
-            <div class="absolute right-0 top-0 h-full w-12 flex items-center justify-center border-l border-gray-200 text-gray-400 hover:bg-gray-200 rounded-r-full cursor-pointer">
-                <i class="fas fa-search"></i>
+        <div id="uploadStatus" class="hidden flex-1 max-w-xs mx-4">
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="progressBar" class="bg-[#fe2c55] h-2 rounded-full" style="width: 0%"></div>
             </div>
+            <p class="text-[10px] text-center mt-1 font-bold text-[#fe2c55]">UPLOADING...</p>
         </div>
 
         <div class="flex items-center space-x-3">
-            <button class="flex items-center space-x-1.5 text-sm font-bold text-gray-800 hover:bg-gray-100 px-3 py-1.5 rounded border border-gray-200">
-                <i class="fas fa-coins text-yellow-500"></i> <span>Get Coins</span>
+            <button onclick="document.getElementById('fileInput').click()" class="flex items-center space-x-1.5 text-sm font-bold text-gray-800 hover:bg-gray-100 px-3 py-1.5 rounded border border-gray-200">
+                <i class="fas fa-plus"></i> <span>Upload</span>
             </button>
-            <button class="text-sm font-bold text-gray-800"><i class="fas fa-mobile-alt mr-1"></i> Get App</button>
-            <button class="text-sm font-bold text-gray-800"><i class="fas fa-desktop mr-1"></i> PC App</button>
+            <input type="file" id="fileInput" class="hidden" accept="video/*" onchange="handleUpload(event)">
             
             <button id="loginBtn" onclick="loginWithDiscord()" class="bg-[#fe2c55] text-white px-5 py-1.5 rounded font-bold text-sm">Log in</button>
             
-            <div id="userProfile" class="hidden flex items-center space-x-2">
+            <div id="userProfile" class="hidden flex items-center space-x-3">
                 <img id="userAvatar" src="" class="w-8 h-8 rounded-full border border-gray-200">
+                <button onclick="logout()" class="text-xs text-gray-400 hover:text-black underline">Logout</button>
             </div>
         </div>
     </header>
@@ -56,102 +58,131 @@
                 <div class="sidebar-item flex items-center space-x-3 px-3 py-2.5 rounded-lg font-bold text-lg text-gray-800 cursor-pointer">
                     <i class="fas fa-user-friends w-6 text-xl"></i> <span>Following</span>
                 </div>
-                <div class="sidebar-item flex items-center space-x-3 px-3 py-2.5 rounded-lg font-bold text-lg text-gray-800 cursor-pointer">
-                    <i class="fas fa-users w-6 text-xl"></i> <span>Friends</span>
-                </div>
-                <div class="sidebar-item flex items-center space-x-3 px-3 py-2.5 rounded-lg font-bold text-lg text-gray-800 cursor-pointer">
-                    <i class="fas fa-video w-6 text-xl"></i> <span>LIVE</span>
-                </div>
-                <div class="sidebar-item flex items-center space-x-3 px-3 py-2.5 rounded-lg font-bold text-lg text-gray-800 cursor-pointer">
-                    <i class="far fa-paper-plane w-6 text-xl"></i> <span>Messages</span>
-                </div>
-                <div class="sidebar-item flex items-center space-x-3 px-3 py-2.5 rounded-lg font-bold text-lg text-gray-800 cursor-pointer relative">
-                    <i class="far fa-bell w-6 text-xl"></i> <span>Activity</span>
-                    <span class="absolute top-2 left-6 bg-[#fe2c55] text-white text-[10px] px-1.5 rounded-full font-bold">26</span>
-                </div>
-                <div onclick="document.getElementById('fileInput').click()" class="sidebar-item flex items-center space-x-3 px-3 py-2.5 rounded-lg font-bold text-lg text-gray-800 cursor-pointer">
-                    <i class="far fa-plus-square w-6 text-xl"></i> <span>Upload</span>
-                </div>
-                <input type="file" id="fileInput" class="hidden" accept="video/*" onchange="handleUpload(event)">
             </nav>
-            <div class="mt-8 px-3">
-                <p class="text-xs font-semibold text-gray-500 mb-4 uppercase">Following accounts</p>
-            </div>
         </aside>
 
         <main id="feed" class="flex-1 feed-container bg-white flex flex-col items-center">
-            <div class="h-full flex flex-col items-center justify-center text-gray-400">
-                <p class="text-xl font-bold">Login to see your feed</p>
-            </div>
+            <div class="h-full flex items-center text-gray-400 font-bold">Loading For You Page...</div>
         </main>
     </div>
 
     <script>
+        const SUPABASE_URL = 'https://riahwqxjgfxwskypnsxs.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_7pGP3l7rkLG31QEg6WC_2w_END7EKMt'; 
         const CLIENT_ID = '1484189679762014352';
-        const REDIRECT_URI = 'https://ijscamengl.github.io/ijscamengl/'; 
+        const REDIRECT_URI = 'https://ijscamengl.github.io/ijscamengl/';
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         function loginWithDiscord() {
             const url = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
             window.location.href = url;
         }
 
-        window.onload = () => {
+        async function init() {
             const hash = window.location.hash.slice(1);
             const params = new URLSearchParams(hash);
             const token = params.get('access_token');
 
             if (token) {
-                fetchDiscordUser(token);
+                const res = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token}` } });
+                const user = await res.json();
+                localStorage.setItem('tiktok_user', JSON.stringify(user));
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-        };
 
-        async function fetchDiscordUser(token) {
-            const res = await fetch('https://discord.com/api/users/@me', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const user = await res.json();
-            document.getElementById('loginBtn').classList.add('hidden');
-            document.getElementById('userProfile').classList.remove('hidden');
-            document.getElementById('userAvatar').src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
-            localStorage.setItem('tiktok_user', JSON.stringify(user));
+            const savedUser = localStorage.getItem('tiktok_user');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                document.getElementById('loginBtn').classList.add('hidden');
+                document.getElementById('userProfile').classList.remove('hidden');
+                document.getElementById('userAvatar').src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+            }
+
+            loadVideos();
         }
 
-        function handleUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        async function loadVideos() {
+            const { data: posts, error } = await supabaseClient.from('posts').select('*').order('created_at', { ascending: false });
+            const feed = document.getElementById('feed');
+            
+            if (!posts || posts.length === 0) {
+                feed.innerHTML = '<div class="h-full flex flex-col items-center justify-center text-gray-400"><i class="fas fa-video-slash text-4xl mb-2"></i><p>No videos yet!</p></div>';
+                return;
+            }
 
-            const videoUrl = URL.createObjectURL(file);
-            const user = JSON.parse(localStorage.getItem('tiktok_user')) || { username: 'user' };
-            const userAvatar = user.id ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : 'https://via.placeholder.com/50';
-
-            const videoCard = `
+            feed.innerHTML = posts.map(post => `
                 <div class="video-card w-full max-w-[500px] flex items-center justify-center relative py-8">
                     <div class="relative h-full aspect-[9/16] bg-black rounded-xl overflow-hidden shadow-2xl flex items-center">
-                        <video src="${videoUrl}" class="w-full h-full object-cover" loop autoplay onclick="this.paused ? this.play() : this.pause()"></video>
+                        <video src="${post.video_url}" class="w-full h-full object-cover" loop controls></video>
                         <div class="absolute bottom-4 left-4 text-white z-10 pr-10">
-                            <p class="font-bold">@${user.username}</p>
-                            <p class="text-sm">Video description goes here #fyp #viral</p>
+                            <p class="font-bold">@${post.username || 'user'}</p>
+                            <p class="text-sm">Video description #fyp #clone</p>
                         </div>
                     </div>
                     <div class="flex flex-col ml-4 space-y-5 items-center self-end mb-12">
-                        <div class="relative mb-2">
-                            <img src="${userAvatar}" class="w-12 h-12 rounded-full border-2 border-white">
-                            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#fe2c55] text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] border-2 border-white">
-                                <i class="fas fa-plus"></i>
-                            </div>
-                        </div>
+                        <img src="${post.avatar || 'https://via.placeholder.com/50'}" class="w-12 h-12 rounded-full border-2 border-white">
                         <div class="text-center"><i class="fas fa-heart text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
                         <div class="text-center"><i class="fas fa-comment-dots text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
                         <div class="text-center"><i class="fas fa-bookmark text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
                         <div class="text-center"><i class="fas fa-share text-2xl text-gray-800"></i><p class="text-xs font-bold text-gray-500">0</p></div>
                     </div>
                 </div>
-            `;
-            const feed = document.getElementById('feed');
-            if (feed.innerText.includes('Login to see')) feed.innerHTML = '';
-            feed.insertAdjacentHTML('afterbegin', videoCard);
+            `).join('');
         }
+
+        async function handleUpload(event) {
+            const file = event.target.files[0];
+            const user = JSON.parse(localStorage.getItem('tiktok_user'));
+            if (!user) return alert("Please log in with Discord first!");
+            if (!file) return;
+
+            const status = document.getElementById('uploadStatus');
+            const bar = document.getElementById('progressBar');
+            status.classList.remove('hidden');
+            
+            // Artificial progress bar (Supabase JS doesn't expose native XHR progress easily)
+            let progress = 0;
+            const interval = setInterval(() => {
+                if (progress < 90) progress += 5;
+                bar.style.width = progress + '%';
+            }, 200);
+
+            const fileName = `${Date.now()}-${file.name}`;
+            
+            // 1. Upload to Storage
+            const { data, error: uploadErr } = await supabaseClient.storage.from('videos').upload(fileName, file);
+            
+            if (uploadErr) {
+                clearInterval(interval);
+                alert("Upload failed: " + uploadErr.message);
+                status.classList.add('hidden');
+                return;
+            }
+
+            // 2. Get URL and Save to Table
+            const { data: { publicUrl } } = supabaseClient.storage.from('videos').getPublicUrl(fileName);
+
+            await supabaseClient.from('posts').insert([{
+                video_url: publicUrl,
+                username: user.username,
+                avatar: `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+            }]);
+
+            clearInterval(interval);
+            bar.style.width = '100%';
+            setTimeout(() => {
+                status.classList.add('hidden');
+                window.location.reload();
+            }, 800);
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.reload();
+        }
+
+        init();
     </script>
 </body>
 </html>
