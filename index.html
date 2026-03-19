@@ -1,42 +1,115 @@
-<header class="h-16 border-b border-gray-200 flex items-center justify-between px-6">
-    <div class="font-bold text-2xl">TikTok</div>
-    <div id="auth-section">
-        <a href="/login" class="bg-[#fe2c55] text-white px-6 py-2 rounded font-bold">Log in</a>
-    </div>
-</header>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #fff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        .video-card { height: calc(100vh - 100px); scroll-snap-align: start; }
+        .feed-container { scroll-snap-type: y mandatory; overflow-y: scroll; height: calc(100vh - 64px); }
+        .feed-container::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
 
-<main class="flex-1 flex flex-col items-center bg-white overflow-y-auto pt-10">
-    <div id="upload-box" class="hidden mb-10 p-4 border-2 border-dashed border-gray-300 rounded-lg">
-        <form action="/upload" method="post" enctype="multipart/form-data">
-            <input type="file" name="video" accept="video/*" class="mb-2">
-            <button type="submit" class="bg-black text-white px-4 py-1 rounded">Post Video</button>
-        </form>
-    </div>
-
-    <div id="fyp-feed" class="space-y-20">
-        </div>
-</main>
-
-<script>
-    async function loadFeed() {
-        const res = await fetch('/videos');
-        const data = await res.json();
-        
-        if (data.user) {
-            document.getElementById('auth-section').innerHTML = `<img src="${data.avatar}" class="w-10 h-10 rounded-full">`;
-            document.getElementById('upload-box').classList.remove('hidden');
-        }
-
-        const feed = document.getElementById('fyp-feed');
-        feed.innerHTML = data.videos.map(v => `
-            <div class="flex space-x-4">
-                <img src="${v.avatar}" class="w-12 h-12 rounded-full">
-                <div>
-                    <p class="font-bold">${v.username}</p>
-                    <video src="${v.url}" controls class="h-[500px] rounded-lg mt-2 shadow-lg"></video>
+    <header class="h-16 border-b flex items-center justify-between px-6 shrink-0">
+        <div class="text-2xl font-black italic tracking-tighter">TikTok</div>
+        <div class="flex items-center space-x-4">
+            <button onclick="document.getElementById('fileInput').click()" class="bg-gray-100 hover:bg-gray-200 px-4 py-1.5 rounded font-bold text-sm">
+                + Upload
+            </button>
+            <input type="file" id="fileInput" class="hidden" accept="video/*" onchange="handleUpload(event)">
+            
+            <button id="loginBtn" onclick="simulateLogin()" class="bg-[#fe2c55] text-white px-6 py-1.5 rounded font-bold text-sm">
+                Log in
+            </button>
+            <div id="userProfile" class="hidden flex items-center space-x-2">
+                <span id="userName" class="font-bold text-sm"></span>
+                <div class="w-8 h-8 bg-black rounded-full overflow-hidden">
+                    <img id="userAvatar" src="" alt="">
                 </div>
             </div>
-        `).join('');
-    }
-    loadFeed();
-</script>
+        </div>
+    </header>
+
+    <div class="flex flex-1">
+        <aside class="w-64 border-r p-4 hidden md:block">
+            <nav class="space-y-4">
+                <div class="text-[#fe2c55] font-bold text-lg flex items-center gap-3"><i class="fas fa-home"></i> For You</div>
+                <div class="text-gray-600 font-bold text-lg flex items-center gap-3"><i class="fas fa-users"></i> Following</div>
+                <div class="text-gray-600 font-bold text-lg flex items-center gap-3"><i class="fas fa-video"></i> LIVE</div>
+            </nav>
+        </aside>
+
+        <main id="feed" class="flex-1 feed-container bg-black flex flex-col items-center">
+            <div class="video-card w-full max-w-[450px] relative flex items-center justify-center">
+                <div class="bg-gray-800 w-full h-[90%] rounded-xl flex items-center justify-center text-white italic">
+                    Upload a video to see it here!
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 1. Simulate Discord Login (Since GitHub Pages can't do OAuth secrets safely)
+        function simulateLogin() {
+            const name = prompt("Enter a username to 'Login' via Discord:");
+            if (name) {
+                document.getElementById('loginBtn').classList.add('hidden');
+                document.getElementById('userProfile').classList.remove('hidden');
+                document.getElementById('userName').innerText = name;
+                document.getElementById('userAvatar').src = `https://ui-avatars.com/api/?name=${name}&background=random`;
+                localStorage.setItem('tiktok_user', name);
+            }
+        }
+
+        // 2. Handle Upload (Local preview only)
+        function handleUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const videoUrl = URL.createObjectURL(file);
+            const username = localStorage.getItem('tiktok_user') || "Guest User";
+            
+            addVideoToFeed(videoUrl, username);
+        }
+
+        function addVideoToFeed(url, user) {
+            const feed = document.getElementById('feed');
+            const videoHTML = `
+                <div class="video-card w-full max-w-[480px] flex items-end p-4 relative mb-10">
+                    <video src="${url}" class="absolute inset-0 w-full h-full object-cover rounded-xl" loop onclick="this.paused ? this.play() : this.pause()"></video>
+                    
+                    <div class="relative z-10 text-white pb-4 pl-4 w-full">
+                        <p class="font-bold text-lg">@${user}</p>
+                        <p class="text-sm">My first upload! #viral #fyp</p>
+                    </div>
+
+                    <div class="absolute right-[-60px] bottom-10 flex flex-col items-center space-y-6">
+                        <div class="flex flex-col items-center"><div class="w-12 h-12 bg-gray-200/20 rounded-full flex items-center justify-center"><i class="fas fa-heart text-2xl"></i></div><span class="text-white text-xs mt-1">0</span></div>
+                        <div class="flex flex-col items-center"><div class="w-12 h-12 bg-gray-200/20 rounded-full flex items-center justify-center"><i class="fas fa-comment-dots text-2xl"></i></div><span class="text-white text-xs mt-1">0</span></div>
+                        <div class="flex flex-col items-center"><div class="w-12 h-12 bg-gray-200/20 rounded-full flex items-center justify-center"><i class="fas fa-bookmark text-2xl"></i></div><span class="text-white text-xs mt-1">0</span></div>
+                        <div class="flex flex-col items-center"><div class="w-12 h-12 bg-gray-200/20 rounded-full flex items-center justify-center"><i class="fas fa-share text-2xl"></i></div><span class="text-white text-xs mt-1">0</span></div>
+                    </div>
+                </div>
+            `;
+            // Add new video to top
+            feed.insertAdjacentHTML('afterbegin', videoHTML);
+        }
+
+        // Check if user was logged in before
+        window.onload = () => {
+            const savedUser = localStorage.getItem('tiktok_user');
+            if (savedUser) {
+                document.getElementById('loginBtn').classList.add('hidden');
+                document.getElementById('userProfile').classList.remove('hidden');
+                document.getElementById('userName').innerText = savedUser;
+                document.getElementById('userAvatar').src = `https://ui-avatars.com/api/?name=${savedUser}&background=random`;
+            }
+        };
+    </script>
+</body>
+</html>
