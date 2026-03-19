@@ -3,113 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Clone</title>
+    <title>TikTok Clone - Discord Auth</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        body { background-color: #fff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        .video-card { height: calc(100vh - 100px); scroll-snap-align: start; }
-        .feed-container { scroll-snap-type: y mandatory; overflow-y: scroll; height: calc(100vh - 64px); }
-        .feed-container::-webkit-scrollbar { display: none; }
-    </style>
 </head>
-<body>
+<body class="bg-white h-screen flex flex-col">
 
     <header class="h-16 border-b flex items-center justify-between px-6 shrink-0">
         <div class="text-2xl font-black italic tracking-tighter">TikTok</div>
         <div class="flex items-center space-x-4">
-            <button onclick="document.getElementById('fileInput').click()" class="bg-gray-100 hover:bg-gray-200 px-4 py-1.5 rounded font-bold text-sm">
-                + Upload
-            </button>
+            <button onclick="document.getElementById('fileInput').click()" class="bg-gray-100 hover:bg-gray-200 px-4 py-1.5 rounded font-bold text-sm">+ Upload</button>
             <input type="file" id="fileInput" class="hidden" accept="video/*" onchange="handleUpload(event)">
             
-            <button id="loginBtn" onclick="simulateLogin()" class="bg-[#fe2c55] text-white px-6 py-1.5 rounded font-bold text-sm">
-                Log in
-            </button>
+            <button id="loginBtn" onclick="loginWithDiscord()" class="bg-[#fe2c55] text-white px-6 py-1.5 rounded font-bold text-sm">Log in with Discord</button>
+            
             <div id="userProfile" class="hidden flex items-center space-x-2">
                 <span id="userName" class="font-bold text-sm"></span>
-                <div class="w-8 h-8 bg-black rounded-full overflow-hidden">
-                    <img id="userAvatar" src="" alt="">
-                </div>
+                <img id="userAvatar" class="w-8 h-8 rounded-full border" src="" alt="Avatar">
+                <button onclick="logout()" class="text-xs text-gray-400 underline">Logout</button>
             </div>
         </div>
     </header>
 
-    <div class="flex flex-1">
-        <aside class="w-64 border-r p-4 hidden md:block">
-            <nav class="space-y-4">
-                <div class="text-[#fe2c55] font-bold text-lg flex items-center gap-3"><i class="fas fa-home"></i> For You</div>
-                <div class="text-gray-600 font-bold text-lg flex items-center gap-3"><i class="fas fa-users"></i> Following</div>
-                <div class="text-gray-600 font-bold text-lg flex items-center gap-3"><i class="fas fa-video"></i> LIVE</div>
-            </nav>
-        </aside>
-
-        <main id="feed" class="flex-1 feed-container bg-black flex flex-col items-center">
-            <div class="video-card w-full max-w-[450px] relative flex items-center justify-center">
-                <div class="bg-gray-800 w-full h-[90%] rounded-xl flex items-center justify-center text-white italic">
-                    Upload a video to see it here!
-                </div>
-            </div>
-        </main>
-    </div>
+    <main id="feed" class="flex-1 overflow-y-scroll bg-black flex flex-col items-center snap-y snap-mandatory">
+        <div class="h-full flex items-center text-white italic opacity-50">Upload a video to start the feed...</div>
+    </main>
 
     <script>
-        // 1. Simulate Discord Login (Since GitHub Pages can't do OAuth secrets safely)
-        function simulateLogin() {
-            const name = prompt("Enter a username to 'Login' via Discord:");
-            if (name) {
-                document.getElementById('loginBtn').classList.add('hidden');
-                document.getElementById('userProfile').classList.remove('hidden');
-                document.getElementById('userName').innerText = name;
-                document.getElementById('userAvatar').src = `https://ui-avatars.com/api/?name=${name}&background=random`;
-                localStorage.setItem('tiktok_user', name);
-            }
+        const CLIENT_ID = '1484189679762014352';
+        const REDIRECT_URI = window.location.href.split('#')[0]; // Auto-detects your URL
+
+        // 1. Redirect to Discord
+        function loginWithDiscord() {
+            const url = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
+            window.location.href = url;
         }
 
-        // 2. Handle Upload (Local preview only)
+        // 2. Check for Token on Page Load
+        window.onload = () => {
+            const fragment = new URLSearchParams(window.location.hash.slice(1));
+            const accessToken = fragment.get('access_token');
+
+            if (accessToken) {
+                fetchDiscordUser(accessToken);
+                // Clean the URL so the token doesn't stay in the address bar
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (localStorage.getItem('user_data')) {
+                showUser(JSON.parse(localStorage.getItem('user_data')));
+            }
+        };
+
+        async function fetchDiscordUser(token) {
+            const response = await fetch('https://discord.com/api/users/@me', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            localStorage.setItem('user_data', JSON.stringify(data));
+            showUser(data);
+        }
+
+        function showUser(user) {
+            document.getElementById('loginBtn').classList.add('hidden');
+            document.getElementById('userProfile').classList.remove('hidden');
+            document.getElementById('userName').innerText = user.username;
+            document.getElementById('userAvatar').src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.reload();
+        }
+
+        // 3. Simple Upload Handling
         function handleUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
             const videoUrl = URL.createObjectURL(file);
-            const username = localStorage.getItem('tiktok_user') || "Guest User";
+            const user = JSON.parse(localStorage.getItem('user_data')) || { username: 'Guest' };
             
-            addVideoToFeed(videoUrl, username);
-        }
-
-        function addVideoToFeed(url, user) {
-            const feed = document.getElementById('feed');
             const videoHTML = `
-                <div class="video-card w-full max-w-[480px] flex items-end p-4 relative mb-10">
-                    <video src="${url}" class="absolute inset-0 w-full h-full object-cover rounded-xl" loop onclick="this.paused ? this.play() : this.pause()"></video>
-                    
-                    <div class="relative z-10 text-white pb-4 pl-4 w-full">
-                        <p class="font-bold text-lg">@${user}</p>
-                        <p class="text-sm">My first upload! #viral #fyp</p>
-                    </div>
-
-                    <div class="absolute right-[-60px] bottom-10 flex flex-col items-center space-y-6">
-                        <div class="flex flex-col items-center"><div class="w-12 h-12 bg-gray-200/20 rounded-full flex items-center justify-center"><i class="fas fa-heart text-2xl"></i></div><span class="text-white text-xs mt-1">0</span></div>
-                        <div class="flex flex-col items-center"><div class="w-12 h-12 bg-gray-200/20 rounded-full flex items-center justify-center"><i class="fas fa-comment-dots text-2xl"></i></div><span class="text-white text-xs mt-1">0</span></div>
-                        <div class="flex flex-col items-center"><div class="w-12 h-12 bg-gray-200/20 rounded-full flex items-center justify-center"><i class="fas fa-bookmark text-2xl"></i></div><span class="text-white text-xs mt-1">0</span></div>
-                        <div class="flex flex-col items-center"><div class="w-12 h-12 bg-gray-200/20 rounded-full flex items-center justify-center"><i class="fas fa-share text-2xl"></i></div><span class="text-white text-xs mt-1">0</span></div>
+                <div class="h-screen w-full max-w-[450px] snap-start relative flex flex-col justify-center">
+                    <video src="${videoUrl}" class="h-[85%] w-full object-cover rounded-xl" loop autoplay muted onclick="this.paused ? this.play() : this.pause()"></video>
+                    <div class="absolute bottom-16 left-4 text-white p-4">
+                        <p class="font-bold">@${user.username}</p>
+                        <p class="text-sm">Fresh upload from my device!</p>
                     </div>
                 </div>
             `;
-            // Add new video to top
-            feed.insertAdjacentHTML('afterbegin', videoHTML);
+            document.getElementById('feed').insertAdjacentHTML('afterbegin', videoHTML);
         }
-
-        // Check if user was logged in before
-        window.onload = () => {
-            const savedUser = localStorage.getItem('tiktok_user');
-            if (savedUser) {
-                document.getElementById('loginBtn').classList.add('hidden');
-                document.getElementById('userProfile').classList.remove('hidden');
-                document.getElementById('userName').innerText = savedUser;
-                document.getElementById('userAvatar').src = `https://ui-avatars.com/api/?name=${savedUser}&background=random`;
-            }
-        };
     </script>
 </body>
 </html>
