@@ -8,559 +8,768 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * { box-sizing: border-box; }
-        body { background: #000; font-family: 'Segoe UI', sans-serif; overflow: hidden; color: white; }
-        .feed-container { height: calc(100vh - 56px); scroll-snap-type: y mandatory; overflow-y: scroll; scrollbar-width: none; }
-        .feed-container::-webkit-scrollbar { display: none; }
-        .video-card { height: calc(100vh - 56px); scroll-snap-align: start; position: relative; display: flex; justify-content: center; align-items: center; }
-        .btn-action { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; transition: transform 0.15s; }
-        .btn-action:hover { transform: scale(1.1); }
-        .btn-action i { font-size: 26px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
-        .btn-action span { font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+
+        /* ── LAYOUT ── */
+        #app { display: flex; flex-direction: column; height: 100vh; }
+        #main { display: flex; flex: 1; overflow: hidden; }
+
+        /* ── HEADER ── */
+        #header { height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #000; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; z-index: 50; }
+
+        /* ── SIDEBAR ── */
+        #sidebar { width: 72px; background: #000; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 4px; flex-shrink: 0; }
+        @media(max-width:768px){ #sidebar { display: none; } }
+        .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: background .2s; width: 64px; }
+        .nav-btn:hover { background: rgba(255,255,255,.07); }
+        .nav-btn i { font-size: 20px; color: #666; }
+        .nav-btn span { font-size: 9px; color: #555; font-weight: 600; }
+        .nav-btn.active i { color: #fff; }
+        .nav-btn.active span { color: #fff; }
+        .nav-btn .badge { position: absolute; top: -3px; right: -3px; background: #fe2c55; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+
+        /* ── PAGES ── */
+        #content { flex: 1; position: relative; overflow: hidden; }
+        .page { position: absolute; inset: 0; display: none; flex-direction: column; }
+        .page.active { display: flex; }
+
+        /* ── FEED ── */
+        #feedScroll { height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; }
+        #feedScroll::-webkit-scrollbar { display: none; }
+        .video-card { height: 100%; scroll-snap-align: start; scroll-snap-stop: always; position: relative; display: flex; justify-content: center; align-items: center; background: #000; flex-shrink: 0; }
+        .video-card video { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .video-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.85) 0%, transparent 50%); pointer-events: none; }
+        .video-info { position: absolute; bottom: 20px; left: 14px; right: 72px; z-index: 10; }
+        .video-actions { position: absolute; right: 10px; bottom: 20px; display: flex; flex-direction: column; gap: 18px; align-items: center; z-index: 10; }
+        .act-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; transition: transform .15s; }
+        .act-btn:hover { transform: scale(1.12); }
+        .act-btn i { font-size: 28px; filter: drop-shadow(0 1px 4px rgba(0,0,0,.7)); }
+        .act-btn span { font-size: 11px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
         .liked { color: #fe2c55 !important; }
-        .heart-pop { animation: heartPop 0.3s ease; }
         @keyframes heartPop { 0%{transform:scale(1)} 50%{transform:scale(1.5)} 100%{transform:scale(1)} }
-        .comment-panel { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; border-radius: 20px 20px 0 0; z-index: 200; transform: translateY(100%); transition: transform 0.3s ease; max-height: 70vh; display: flex; flex-direction: column; }
-        .comment-panel.open { transform: translateY(0); }
-        .comment-item { display: flex; gap: 10px; padding: 10px 16px; align-items: flex-start; }
-        .comment-item img { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 150; display: none; }
-        .overlay.show { display: block; }
-        #progressBar { transition: width 0.3s ease; }
-        .follow-btn { font-size: 11px; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-weight: 700; transition: all 0.2s; border: none; }
-        .follow-btn.following { background: #333; color: #aaa; }
-        .follow-btn.not-following { background: #fe2c55; color: white; }
-        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,0.97); border: 1px solid #333; padding: 9px 22px; border-radius: 20px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
-        .toast.show { opacity: 1; }
-        .dm-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; background: #111; z-index: 400; transform: translateX(100%); transition: transform 0.3s ease; display: flex; flex-direction: column; border-left: 1px solid #222; }
-        .dm-panel.open { transform: translateX(0); }
-        .dm-chat { position: fixed; top: 0; right: 340px; bottom: 0; width: 340px; background: #0d0d0d; z-index: 400; transform: translateX(200%); transition: transform 0.3s ease; display: flex; flex-direction: column; border-left: 1px solid #222; }
-        .dm-chat.open { transform: translateX(0); }
-        .dm-msg { padding: 8px 14px; border-radius: 18px; max-width: 78%; margin: 2px 12px; font-size: 14px; line-height: 1.4; }
-        .dm-msg.mine { background: #fe2c55; align-self: flex-end; }
-        .dm-msg.theirs { background: #2a2a2a; align-self: flex-start; }
-        .profile-modal { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; }
-        .sidebar-icon { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 10px 16px; border-radius: 10px; transition: background 0.2s; }
-        .sidebar-icon:hover { background: rgba(255,255,255,0.06); }
-        .sidebar-icon i { font-size: 22px; color: #777; }
-        .sidebar-icon span { font-size: 10px; color: #666; }
-        .sidebar-icon.active i { color: white; }
-        .sidebar-icon.active span { color: white; }
+        .heart-pop { animation: heartPop .3s ease; }
+        .follow-pill { font-size: 10px; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-weight: 700; border: none; margin-left: 4px; }
+        .follow-pill.off { background: #fe2c55; color: #fff; }
+        .follow-pill.on  { background: #333; color: #aaa; }
+
+        /* ── COMMENT PANEL ── */
+        .panel { position: fixed; bottom: 0; left: 0; right: 0; background: #181818; border-radius: 18px 18px 0 0; z-index: 300; transform: translateY(100%); transition: transform .32s cubic-bezier(.4,0,.2,1); display: flex; flex-direction: column; max-height: 72vh; }
+        .panel.open { transform: translateY(0); }
+        .panel-handle { width: 40px; height: 4px; background: #444; border-radius: 2px; margin: 10px auto 0; }
+        .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 8px; border-bottom: 1px solid #2a2a2a; flex-shrink: 0; }
+        .comment-list { flex: 1; overflow-y: auto; }
+        .comment-list::-webkit-scrollbar { display: none; }
+        .comment-row { display: flex; gap: 10px; padding: 10px 14px; }
+        .comment-row img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .comment-input-row { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-top: 1px solid #222; flex-shrink: 0; }
+        .comment-input-row img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .c-input { flex: 1; background: #2a2a2a; border: none; outline: none; border-radius: 20px; padding: 8px 14px; color: #fff; font-size: 14px; }
+        .c-input::placeholder { color: #555; }
+
+        /* ── OVERLAY ── */
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 250; display: none; }
+        #overlay.on { display: block; }
+
+        /* ── MESSAGES PAGE ── */
+        #msgPage { background: #0a0a0a; }
+        #convList { flex: 1; overflow-y: auto; }
+        #convList::-webkit-scrollbar { display: none; }
+        .conv-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; transition: background .15s; border-bottom: 1px solid #111; }
+        .conv-row:hover { background: #141414; }
+        .conv-row img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .unread-dot { width: 10px; height: 10px; background: #fe2c55; border-radius: 50%; flex-shrink: 0; }
+
+        /* ── CHAT VIEW ── */
+        #chatView { position: absolute; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; transform: translateX(100%); transition: transform .28s ease; z-index: 10; }
+        #chatView.open { transform: translateX(0); }
+        #chatHead { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
+        #chatMessages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+        #chatMessages::-webkit-scrollbar { display: none; }
+        .msg-bubble { padding: 9px 14px; border-radius: 18px; max-width: 75%; font-size: 14px; line-height: 1.4; word-break: break-word; }
+        .msg-mine { background: #fe2c55; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .msg-theirs { background: #222; align-self: flex-start; border-bottom-left-radius: 4px; }
+        #chatInputRow { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-top: 1px solid #1a1a1a; flex-shrink: 0; }
+        #chatInput { flex: 1; background: #1e1e1e; border: none; outline: none; border-radius: 22px; padding: 10px 16px; color: #fff; font-size: 14px; }
+        #chatInput::placeholder { color: #444; }
+
+        /* ── NOTIFICATIONS ── */
+        #notifPage { background: #0a0a0a; }
+        #notifList { flex: 1; overflow-y: auto; }
+        .notif-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #111; }
+        .notif-row img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .notif-row.unread { background: #120a0e; }
+
+        /* ── PROFILE MODAL ── */
+        #profileModal { position: fixed; inset: 0; z-index: 600; display: none; align-items: center; justify-content: center; }
+        #profileModal.on { display: flex; }
+        #profileModal .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.75); }
+        #profileCard { position: relative; background: #181818; border: 1px solid #2a2a2a; border-radius: 20px; padding: 24px 20px; width: 290px; text-align: center; z-index: 1; }
+
+        /* ── TOAST ── */
+        #toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,.97); border: 1px solid #333; padding: 8px 20px; border-radius: 20px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+        #toast.on { opacity: 1; }
+
+        /* ── UPLOAD PROGRESS ── */
+        #uploadBar { height: 2px; background: #1a1a1a; position: fixed; top: 52px; left: 0; right: 0; z-index: 999; display: none; }
+        #uploadFill { height: 100%; background: #fe2c55; transition: width .3s; width: 0; }
+
+        /* ── MISC ── */
+        .red-btn { background: #fe2c55; color: #fff; border: none; border-radius: 6px; padding: 7px 18px; font-weight: 700; font-size: 13px; cursor: pointer; transition: opacity .2s; }
+        .red-btn:hover { opacity: .85; }
+        .grey-btn { background: #252525; color: #ccc; border: none; border-radius: 6px; padding: 7px 18px; font-weight: 700; font-size: 13px; cursor: pointer; transition: background .2s; }
+        .grey-btn:hover { background: #2e2e2e; }
     </style>
 </head>
-<body class="flex flex-col h-screen">
+<body>
+<div id="app">
 
-    <header class="h-14 flex items-center justify-between px-4 shrink-0 z-50 bg-black border-b border-gray-900">
-        <img src="https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg" class="h-6 brightness-0 invert" alt="TikTok">
-        <div id="uploadStatus" class="hidden w-36 bg-gray-800 rounded-full h-1.5">
-            <div id="progressBar" class="bg-[#fe2c55] h-1.5 rounded-full" style="width:0%"></div>
-        </div>
-        <div class="flex items-center gap-3">
-            <button onclick="document.getElementById('fileInput').click()" class="bg-gray-800 hover:bg-gray-700 px-4 py-1.5 rounded font-bold text-sm text-white">+ Upload</button>
-            <input type="file" id="fileInput" class="hidden" accept="video/*" onchange="handleUpload(event)">
-            <button id="loginBtn" onclick="loginWithDiscord()" class="bg-[#fe2c55] text-white px-4 py-1.5 rounded font-bold text-sm">Log in</button>
-            <div id="userProfile" style="display:none" class="flex items-center gap-2">
-                <img id="userAvatar" src="" class="w-8 h-8 rounded-full border border-gray-600 cursor-pointer object-cover" onclick="openProfile(null)">
-                <button onclick="logout()" class="text-xs text-gray-500 hover:text-white">Logout</button>
+    <!-- HEADER -->
+    <div id="header">
+        <img src="https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg" style="height:22px;filter:brightness(0) invert(1)">
+        <div id="uploadBar"><div id="uploadFill"></div></div>
+        <div style="display:flex;align-items:center;gap:10px">
+            <button onclick="document.getElementById('fileInput').click()" class="grey-btn" style="padding:6px 14px;font-size:12px">+ Upload</button>
+            <input type="file" id="fileInput" style="display:none" accept="video/*" onchange="handleUpload(event)">
+            <button id="loginBtn" onclick="loginWithDiscord()" class="red-btn" style="padding:6px 14px;font-size:12px">Log in</button>
+            <div id="userBar" style="display:none;align-items:center;gap:8px">
+                <img id="userAvatar" src="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid #333" onclick="openProfile(null)">
+                <button onclick="logout()" style="background:none;border:none;color:#555;font-size:12px;cursor:pointer">Logout</button>
             </div>
         </div>
-    </header>
+    </div>
 
-    <div class="flex flex-1 overflow-hidden">
-        <aside class="w-20 border-r border-gray-900 py-4 hidden lg:flex flex-col items-center gap-1 bg-black shrink-0">
-            <div class="sidebar-icon active" id="tab-foryou" onclick="setTab('foryou')">
+    <div id="main">
+        <!-- SIDEBAR -->
+        <div id="sidebar">
+            <div class="nav-btn active" id="nb-feed" onclick="showPage('feed')">
                 <i class="fas fa-home"></i><span>For You</span>
             </div>
-            <div class="sidebar-icon" id="tab-following" onclick="setTab('following')">
+            <div class="nav-btn" id="nb-following" onclick="showPage('following')">
                 <i class="fas fa-user-friends"></i><span>Following</span>
             </div>
-        </aside>
-        <main id="feed" class="flex-1 feed-container bg-black flex flex-col items-center">
-            <div class="h-full flex items-center text-gray-600 text-sm">Loading...</div>
-        </main>
-    </div>
-
-    <div class="overlay" id="overlay" onclick="closeAll()"></div>
-
-    <!-- Comments -->
-    <div class="comment-panel" id="commentPanel">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-            <span class="font-bold text-base" id="commentTitle">Comments</span>
-            <button onclick="closeComments()" class="text-gray-500 hover:text-white"><i class="fas fa-times"></i></button>
-        </div>
-        <div id="commentList" class="flex-1 overflow-y-auto py-1"></div>
-        <div class="p-3 border-t border-gray-800 flex gap-2 items-center shrink-0">
-            <img id="commentAvatar" src="" class="w-8 h-8 rounded-full object-cover bg-gray-700 shrink-0">
-            <input id="commentInput" type="text" placeholder="Add a comment..." maxlength="200"
-                class="flex-1 bg-gray-800 rounded-full px-4 py-2 text-sm text-white outline-none placeholder-gray-600"
-                onkeydown="if(event.key==='Enter') submitComment()">
-            <button onclick="submitComment()" class="text-[#fe2c55] font-bold text-sm px-1 hover:text-red-400 shrink-0">Post</button>
-        </div>
-    </div>
-
-    <!-- DM List -->
-    <div class="dm-panel" id="dmListPanel">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-            <span class="font-bold text-base">Messages</span>
-            <button onclick="closeDMs()" class="text-gray-500 hover:text-white"><i class="fas fa-times"></i></button>
-        </div>
-        <div id="dmList" class="flex-1 overflow-y-auto"></div>
-    </div>
-
-    <!-- DM Chat -->
-    <div class="dm-chat" id="dmChatPanel">
-        <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-800 shrink-0">
-            <button onclick="closeDMChat()" class="text-gray-500 hover:text-white mr-1"><i class="fas fa-arrow-left"></i></button>
-            <img id="dmChatAvatar" src="" class="w-8 h-8 rounded-full object-cover">
-            <span id="dmChatName" class="font-bold text-sm"></span>
-        </div>
-        <div id="dmMessages" class="flex-1 overflow-y-auto py-2 flex flex-col"></div>
-        <div class="p-3 border-t border-gray-800 flex gap-2 items-center shrink-0">
-            <input id="dmInput" type="text" placeholder="Message..."
-                class="flex-1 bg-gray-800 rounded-full px-4 py-2 text-sm text-white outline-none placeholder-gray-600"
-                onkeydown="if(event.key==='Enter') sendDM()">
-            <button onclick="sendDM()" class="bg-[#fe2c55] text-white rounded-full w-9 h-9 flex items-center justify-center shrink-0 hover:bg-red-600">
-                <i class="fas fa-paper-plane text-xs"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- Profile Modal -->
-    <div class="profile-modal" id="profileModal" style="display:none">
-        <div class="absolute inset-0 bg-black bg-opacity-75" onclick="closeProfile()"></div>
-        <div class="relative bg-gray-900 rounded-2xl p-6 w-72 text-center border border-gray-800" style="z-index:1">
-            <button onclick="closeProfile()" class="absolute top-3 right-3 text-gray-600 hover:text-white"><i class="fas fa-times"></i></button>
-            <img id="profileAvatar" src="" class="w-20 h-20 rounded-full mx-auto mb-3 border-2 border-gray-700 object-cover">
-            <h2 id="profileUsername" class="font-bold text-lg mb-3"></h2>
-            <div class="flex justify-center gap-8 mb-4">
-                <div><div id="profileFollowers" class="font-bold text-xl">0</div><div class="text-gray-500 text-xs">Followers</div></div>
-                <div><div id="profileFollowingCount" class="font-bold text-xl">0</div><div class="text-gray-500 text-xs">Following</div></div>
+            <div class="nav-btn" id="nb-messages" onclick="showPage('messages')" style="position:relative">
+                <i class="fas fa-paper-plane"></i><span>Messages</span>
+                <div class="badge" id="msgBadge" style="display:none">!</div>
             </div>
-            <div id="profileActions" class="flex gap-2 justify-center"></div>
+            <div class="nav-btn" id="nb-notifs" onclick="showPage('notifs')" style="position:relative">
+                <i class="fas fa-bell"></i><span>Activity</span>
+                <div class="badge" id="notifBadge" style="display:none">!</div>
+            </div>
         </div>
+
+        <!-- CONTENT AREA -->
+        <div id="content">
+
+            <!-- FEED PAGE -->
+            <div class="page active" id="page-feed">
+                <div id="feedScroll"></div>
+            </div>
+
+            <!-- FOLLOWING PAGE -->
+            <div class="page" id="page-following">
+                <div id="followingScroll" style="height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none"></div>
+            </div>
+
+            <!-- MESSAGES PAGE -->
+            <div class="page" id="page-messages" style="position:relative">
+                <div style="padding:14px 16px;border-bottom:1px solid #1a1a1a;font-weight:700;font-size:16px;flex-shrink:0">Messages</div>
+                <div id="convList"></div>
+                <!-- CHAT VIEW (slides in) -->
+                <div id="chatView">
+                    <div id="chatHead">
+                        <button onclick="closeChat()" style="background:none;border:none;color:#666;font-size:18px;cursor:pointer;padding:4px"><i class="fas fa-arrow-left"></i></button>
+                        <img id="chatAvatar" src="" style="width:36px;height:36px;border-radius:50%;object-fit:cover">
+                        <span id="chatName" style="font-weight:700;font-size:15px"></span>
+                    </div>
+                    <div id="chatMessages"></div>
+                    <div id="chatInputRow">
+                        <input id="chatInput" placeholder="Message..." onkeydown="if(event.key==='Enter')sendMsg()">
+                        <button onclick="sendMsg()" class="red-btn" style="padding:8px 16px;border-radius:20px">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NOTIFICATIONS PAGE -->
+            <div class="page" id="page-notifs">
+                <div style="padding:14px 16px;border-bottom:1px solid #1a1a1a;font-weight:700;font-size:16px;flex-shrink:0">Activity</div>
+                <div id="notifList"></div>
+            </div>
+
+        </div><!-- /content -->
+    </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- OVERLAY -->
+<div id="overlay" onclick="closeAll()"></div>
+
+<!-- COMMENT PANEL -->
+<div class="panel" id="commentPanel">
+    <div class="panel-handle"></div>
+    <div class="panel-head">
+        <span style="font-weight:700;font-size:15px" id="cPanelTitle">Comments</span>
+        <button onclick="closeComments()" style="background:none;border:none;color:#555;font-size:18px;cursor:pointer"><i class="fas fa-times"></i></button>
     </div>
+    <div class="comment-list" id="commentList"></div>
+    <div class="comment-input-row">
+        <img id="cAvatar" src="" style="background:#222">
+        <input class="c-input" id="cInput" placeholder="Add a comment..." maxlength="300" onkeydown="if(event.key==='Enter')postComment()">
+        <button onclick="postComment()" style="background:none;border:none;color:#fe2c55;font-weight:700;font-size:13px;cursor:pointer;padding:0 4px">Post</button>
+    </div>
+</div>
 
-    <div id="toast" class="toast"></div>
+<!-- PROFILE MODAL -->
+<div id="profileModal">
+    <div class="backdrop" onclick="closeProfile()"></div>
+    <div id="profileCard">
+        <button onclick="closeProfile()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:#555;font-size:18px;cursor:pointer"><i class="fas fa-times"></i></button>
+        <img id="pAvatar" src="" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:2px solid #333;margin-bottom:10px">
+        <div id="pName" style="font-weight:700;font-size:17px;margin-bottom:12px"></div>
+        <div style="display:flex;justify-content:center;gap:32px;margin-bottom:16px">
+            <div style="text-align:center"><div id="pFollowers" style="font-weight:700;font-size:20px">0</div><div style="color:#666;font-size:11px">Followers</div></div>
+            <div style="text-align:center"><div id="pFollowing" style="font-weight:700;font-size:20px">0</div><div style="color:#666;font-size:11px">Following</div></div>
+        </div>
+        <div id="pActions" style="display:flex;justify-content:center;gap:8px"></div>
+    </div>
+</div>
 
-    <script>
-        const SUPABASE_URL = 'https://riahwqxjgfxwskypnsxs.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpYWh3cXhqZ2Z4d3NreXBuc3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0OTY5OTgsImV4cCI6MjA4OTA3Mjk5OH0.rTgRS8G1LU7oKkvFicizAUxPCryFUIyPV1vSCHR88ZY';
-        const CLIENT_ID = '1484189679762014352';
-        const REDIRECT_URI = 'https://ijscamengl.github.io/ijscamengl/';
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<!-- TOAST -->
+<div id="toast"></div>
 
-        let currentUser = null, currentPostId = null, currentTab = 'foryou';
-        let dmTarget = null, profileTarget = null, dmChannel = null;
-        let likedPosts = new Set(), followedUsers = new Set();
-        let ioObserver = null, toastTimer = null;
+<script>
+const SB_URL = 'https://riahwqxjgfxwskypnsxs.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpYWh3cXhqZ2Z4d3NreXBuc3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0OTY5OTgsImV4cCI6MjA4OTA3Mjk5OH0.rTgRS8G1LU7oKkvFicizAUxPCryFUIyPV1vSCHR88ZY';
+const CLIENT_ID = '1484189679762014352';
+const REDIRECT = 'https://ijscamengl.github.io/ijscamengl/';
+const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        async function init() {
-            // Handle Discord OAuth token in hash
-            const hash = window.location.hash.slice(1);
-            const params = new URLSearchParams(hash);
-            const token = params.get('access_token');
-            if (token) {
-                try {
-                    const res = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token}` } });
-                    const user = await res.json();
-                    if (user && user.id) localStorage.setItem('tik_user', JSON.stringify(user));
-                } catch(e) { console.error(e); }
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
+let me = null;
+let likes = new Set(), follows = new Set();
+let activePage = 'feed';
+let commentPostId = null;
+let chatTarget = null;
+let chatChannel = null;
+let ioObs = null;
+let profileTarget = null;
+let toastTmr = null;
+let notifChannel = null;
+let dmChannel2 = null;
 
-            const saved = localStorage.getItem('tik_user');
-            if (saved) {
-                try {
-                    currentUser = JSON.parse(saved);
-                    // Show user UI
-                    document.getElementById('loginBtn').style.display = 'none';
-                    document.getElementById('userProfile').style.display = 'flex';
-                    document.getElementById('userAvatar').src = avatarUrl(currentUser);
-                    document.getElementById('commentAvatar').src = avatarUrl(currentUser);
-                    // Load user data
-                    const [{ data: likes }, { data: follows }] = await Promise.all([
-                        sb.from('likes').select('post_id').eq('username', currentUser.username),
-                        sb.from('follows').select('following').eq('follower', currentUser.username)
-                    ]);
-                    if (likes) likes.forEach(l => likedPosts.add(l.post_id));
-                    if (follows) follows.forEach(f => followedUsers.add(f.following));
-                } catch(e) { localStorage.removeItem('tik_user'); currentUser = null; }
-            }
-            loadVideos();
-        }
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+async function init() {
+    const hash = window.location.hash.slice(1);
+    const params = new URLSearchParams(hash);
+    const token = params.get('access_token');
+    if (token) {
+        try {
+            const r = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token}` } });
+            const u = await r.json();
+            if (u && u.id) localStorage.setItem('tik_u', JSON.stringify(u));
+        } catch(e){}
+        history.replaceState({}, '', location.pathname);
+    }
 
-        function avatarUrl(user) {
-            if (!user) return '';
-            return user.avatar
-                ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-                : `https://ui-avatars.com/api/?name=${user.username}&background=333&color=fff`;
-        }
-
-        function setupAutoplay() {
-            if (ioObserver) ioObserver.disconnect();
-            let playing = null;
-            ioObserver = new IntersectionObserver(entries => {
-                entries.forEach(entry => {
-                    const vid = entry.target.querySelector('video');
-                    if (!vid) return;
-                    if (entry.isIntersecting) {
-                        if (playing && playing !== vid) { playing.pause(); playing.currentTime = 0; }
-                        vid.muted = true;
-                        vid.play().catch(() => {});
-                        playing = vid;
-                    } else {
-                        vid.pause();
-                    }
-                });
-            }, { threshold: 0.65 });
-            document.querySelectorAll('.video-card').forEach(c => ioObserver.observe(c));
-        }
-
-        async function loadVideos() {
-            const feed = document.getElementById('feed');
-            feed.innerHTML = '<div class="h-full flex items-center text-gray-600 text-sm">Loading...</div>';
-            let query = sb.from('posts').select('*').order('created_at', { ascending: false });
-            if (currentTab === 'following') {
-                const arr = Array.from(followedUsers);
-                if (!arr.length) {
-                    feed.innerHTML = '<div class="h-full flex items-center text-gray-500 text-sm text-center px-10">Follow creators to see their videos!</div>';
-                    return;
-                }
-                query = query.in('username', arr);
-            }
-            const { data: posts, error } = await query;
-            if (error || !posts || !posts.length) {
-                feed.innerHTML = '<div class="h-full flex items-center text-gray-600 text-sm">No videos yet!</div>';
-                return;
-            }
-            feed.innerHTML = posts.map(post => {
-                const isOwner = currentUser && currentUser.username === post.username;
-                const liked = likedPosts.has(post.id);
-                const isFollowing = followedUsers.has(post.username);
-                const isSelf = currentUser && currentUser.username === post.username;
-                const safeUser = post.username.replace(/'/g, "\\'");
-                const safeAvatar = (post.avatar || '').replace(/'/g, "\\'");
-                return `
-                <div class="video-card w-full" data-id="${post.id}">
-                    <div class="relative w-full h-full max-w-sm overflow-hidden bg-black flex items-center">
-                        <video src="${post.video_url}" class="w-full h-full object-cover" loop muted playsinline preload="metadata"></video>
-                        <div class="absolute inset-0 pointer-events-none" style="background:linear-gradient(to top,rgba(0,0,0,.8) 0%,transparent 45%)"></div>
-                        <div class="absolute bottom-14 left-3 right-20 z-10">
-                            <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-                                <img src="${post.avatar}" onerror="this.src='https://ui-avatars.com/api/?name=${safeUser}&background=333&color=fff'"
-                                    class="w-8 h-8 rounded-full border-2 border-white object-cover cursor-pointer shrink-0"
-                                    onclick="openProfile('${safeUser}','${safeAvatar}')">
-                                <span class="font-bold text-sm cursor-pointer" onclick="openProfile('${safeUser}','${safeAvatar}')">@${post.username}</span>
-                                ${!isSelf ? `<button class="follow-btn ${isFollowing ? 'following' : 'not-following'}" onclick="toggleFollow('${safeUser}','${safeAvatar}',this)">${isFollowing ? 'Following' : 'Follow'}</button>` : ''}
-                            </div>
-                            <p class="text-xs text-gray-300">#fyp #trending</p>
-                        </div>
-                        <div class="absolute right-3 bottom-14 flex flex-col gap-5 items-center z-10">
-                            <div class="btn-action" onclick="toggleLike('${post.id}',this)">
-                                <i class="fas fa-heart ${liked ? 'liked' : 'text-white'}"></i>
-                                <span id="lc-${post.id}">${post.likes || 0}</span>
-                            </div>
-                            <div class="btn-action" onclick="openComments('${post.id}')">
-                                <i class="fas fa-comment-dots text-white"></i>
-                                <span id="cc-${post.id}">${post.comment_count || 0}</span>
-                            </div>
-                            <div class="btn-action" onclick="sharePost('${post.video_url}')">
-                                <i class="fas fa-share text-white"></i>
-                                <span>Share</span>
-                            </div>
-                            ${isOwner ? `<div class="btn-action" onclick="deletePost('${post.id}')"><i class="fas fa-trash-alt" style="color:#f87171"></i><span style="color:#f87171">Delete</span></div>` : ''}
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
-            setupAutoplay();
-        }
-
-        function setTab(tab) {
-            currentTab = tab;
-            document.getElementById('tab-foryou').classList.toggle('active', tab === 'foryou');
-            document.getElementById('tab-following').classList.toggle('active', tab === 'following');
-            loadVideos();
-        }
-
-        async function toggleLike(postId, btn) {
-            if (!currentUser) return showToast('Log in to like!');
-            const heart = btn.querySelector('i');
-            const countEl = document.getElementById('lc-' + postId);
-            if (likedPosts.has(postId)) {
-                likedPosts.delete(postId);
-                heart.classList.remove('liked');
-                countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
-                await sb.from('likes').delete().eq('post_id', postId).eq('username', currentUser.username);
-                await sb.rpc('decrement_likes', { post_id: postId });
-            } else {
-                likedPosts.add(postId);
-                heart.classList.add('liked');
-                heart.classList.add('heart-pop');
-                setTimeout(() => heart.classList.remove('heart-pop'), 350);
-                countEl.textContent = parseInt(countEl.textContent) + 1;
-                await sb.from('likes').insert({ post_id: postId, username: currentUser.username });
-                await sb.rpc('increment_likes', { post_id: postId });
-            }
-        }
-
-        async function openComments(postId) {
-            currentPostId = postId;
-            document.getElementById('commentPanel').classList.add('open');
-            document.getElementById('overlay').classList.add('show');
-            await loadComments();
-        }
-
-        async function loadComments() {
-            const list = document.getElementById('commentList');
-            list.innerHTML = '<div class="text-center text-gray-600 py-6 text-sm">Loading...</div>';
-            const { data } = await sb.from('comments').select('*').eq('post_id', currentPostId).order('created_at', { ascending: true });
-            const count = data ? data.length : 0;
-            document.getElementById('commentTitle').textContent = count + ' Comment' + (count !== 1 ? 's' : '');
-            const ccEl = document.getElementById('cc-' + currentPostId);
-            if (ccEl) ccEl.textContent = count;
-            if (!count) { list.innerHTML = '<div class="text-center text-gray-600 py-10 text-sm">No comments yet!</div>'; return; }
-            list.innerHTML = data.map(c => `
-                <div class="comment-item">
-                    <img src="${c.avatar}" onerror="this.src='https://ui-avatars.com/api/?name=${c.username}&background=333&color=fff'">
-                    <div>
-                        <span class="font-bold text-sm">${c.username}</span>
-                        <p class="text-sm text-gray-300 mt-0.5 break-words">${escHtml(c.text)}</p>
-                        <span class="text-xs text-gray-600">${timeAgo(c.created_at)}</span>
-                    </div>
-                </div>`).join('');
-            list.scrollTop = list.scrollHeight;
-        }
-
-        async function submitComment() {
-            if (!currentUser) return showToast('Log in to comment!');
-            const input = document.getElementById('commentInput');
-            const text = input.value.trim();
-            if (!text) return;
-            input.value = '';
-            await sb.from('comments').insert({ post_id: currentPostId, username: currentUser.username, avatar: avatarUrl(currentUser), text });
-            await loadComments();
-        }
-
-        function closeComments() {
-            document.getElementById('commentPanel').classList.remove('open');
-            document.getElementById('overlay').classList.remove('show');
-        }
-
-        async function toggleFollow(username, avatar, btn) {
-            if (!currentUser) return showToast('Log in to follow!');
-            if (username === currentUser.username) return;
-            if (followedUsers.has(username)) {
-                followedUsers.delete(username);
-                btn.textContent = 'Follow'; btn.className = 'follow-btn not-following';
-                await sb.from('follows').delete().eq('follower', currentUser.username).eq('following', username);
-            } else {
-                followedUsers.add(username);
-                btn.textContent = 'Following'; btn.className = 'follow-btn following';
-                await sb.from('follows').insert({ follower: currentUser.username, following: username });
-                showToast('Following @' + username);
-            }
-        }
-
-        async function openProfile(username, avatar) {
-            if (!username && currentUser) { username = currentUser.username; avatar = avatarUrl(currentUser); }
-            if (!username) return;
-            profileTarget = { username, avatar };
-            document.getElementById('profileAvatar').src = avatar || `https://ui-avatars.com/api/?name=${username}&background=333&color=fff`;
-            document.getElementById('profileUsername').textContent = '@' + username;
-            const [{ count: followers }, { count: following }] = await Promise.all([
-                sb.from('follows').select('*', { count: 'exact', head: true }).eq('following', username),
-                sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower', username)
+    const saved = localStorage.getItem('tik_u');
+    if (saved) {
+        try {
+            me = JSON.parse(saved);
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('userBar').style.display = 'flex';
+            document.getElementById('userAvatar').src = av(me);
+            document.getElementById('cAvatar').src = av(me);
+            const [{ data: lk }, { data: fw }] = await Promise.all([
+                sb.from('likes').select('post_id').eq('username', me.username),
+                sb.from('follows').select('following').eq('follower', me.username)
             ]);
-            document.getElementById('profileFollowers').textContent = followers || 0;
-            document.getElementById('profileFollowingCount').textContent = following || 0;
-            const isSelf = currentUser && currentUser.username === username;
-            const isFollowing = followedUsers.has(username);
-            const actions = document.getElementById('profileActions');
-            if (isSelf) {
-                actions.innerHTML = '<span class="text-gray-500 text-sm">Your profile</span>';
-            } else {
-                actions.innerHTML = `
-                    <button id="profFollowBtn" onclick="toggleFollowProfile()"
-                        class="px-5 py-2 rounded font-bold text-sm ${isFollowing ? 'bg-gray-700 text-gray-300' : 'bg-[#fe2c55] text-white'}">
-                        ${isFollowing ? 'Following' : 'Follow'}
-                    </button>
-                    <button onclick="openDMFromProfile()" class="bg-gray-800 text-white px-5 py-2 rounded font-bold text-sm hover:bg-gray-700">Message</button>`;
+            (lk || []).forEach(x => likes.add(x.post_id));
+            (fw || []).forEach(x => follows.add(x.following));
+            subscribeNotifs();
+            subscribeDMs();
+        } catch(e){ localStorage.removeItem('tik_u'); me = null; }
+    }
+
+    loadFeed('feedScroll', false);
+}
+
+function av(u) {
+    if (!u) return '';
+    return u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png`
+                    : `https://ui-avatars.com/api/?name=${u.username}&background=222&color=fff`;
+}
+
+// ═══════════════════════════════════════════
+// PAGES
+// ═══════════════════════════════════════════
+function showPage(p) {
+    document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('page-' + p).classList.add('active');
+    document.getElementById('nb-' + p).classList.add('active');
+    activePage = p;
+    if (p === 'feed') loadFeed('feedScroll', false);
+    if (p === 'following') loadFeed('followingScroll', true);
+    if (p === 'messages') loadConversations();
+    if (p === 'notifs') loadNotifs();
+}
+
+// ═══════════════════════════════════════════
+// FEED
+// ═══════════════════════════════════════════
+async function loadFeed(scrollId, followingOnly) {
+    const container = document.getElementById(scrollId);
+    container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-size:14px">Loading...</div>';
+
+    let query = sb.from('posts').select('*').order('created_at', { ascending: false });
+    if (followingOnly) {
+        const arr = Array.from(follows);
+        if (!arr.length) {
+            container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-size:14px;text-align:center;padding:20px">Follow people to see their videos here!</div>';
+            return;
+        }
+        query = query.in('username', arr);
+    }
+
+    const { data, error } = await query;
+    if (error || !data || !data.length) {
+        container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-size:14px">No videos yet!</div>';
+        return;
+    }
+
+    container.innerHTML = data.map(post => buildCard(post)).join('');
+    setupAutoplay(container);
+}
+
+function buildCard(post) {
+    const liked = likes.has(post.id);
+    const isFollowing = follows.has(post.username);
+    const isSelf = me && me.username === post.username;
+    const isOwner = isSelf;
+    const su = esc(post.username), sa = esc(post.avatar || '');
+    return `
+    <div class="video-card" data-id="${post.id}" style="height:100%">
+        <video src="${post.video_url}" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+        <div class="video-overlay"></div>
+        <div class="video-info">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+                <img src="${post.avatar}" onerror="this.src='https://ui-avatars.com/api/?name=${su}&background=222&color=fff'"
+                    style="width:34px;height:34px;border-radius:50%;border:2px solid #fff;object-fit:cover;cursor:pointer;flex-shrink:0"
+                    onclick="openProfile('${su}','${sa}')">
+                <span style="font-weight:700;font-size:14px;cursor:pointer" onclick="openProfile('${su}','${sa}')">@${post.username}</span>
+                ${!isSelf ? `<button class="follow-pill ${isFollowing?'on':'off'}" onclick="toggleFollow('${su}','${sa}',this)">${isFollowing?'Following':'Follow'}</button>` : ''}
+            </div>
+            <p style="font-size:12px;color:#ccc">#fyp #trending</p>
+        </div>
+        <div class="video-actions">
+            <div class="act-btn" onclick="toggleLike('${post.id}',this)">
+                <i class="fas fa-heart ${liked?'liked':''}"></i>
+                <span id="lc-${post.id}">${post.likes||0}</span>
+            </div>
+            <div class="act-btn" onclick="openComments('${post.id}')">
+                <i class="fas fa-comment-dots"></i>
+                <span id="cc-${post.id}">${post.comment_count||0}</span>
+            </div>
+            <div class="act-btn" onclick="sharePost('${post.video_url}')">
+                <i class="fas fa-share"></i>
+                <span>Share</span>
+            </div>
+            ${isOwner ? `<div class="act-btn" onclick="deletePost('${post.id}')"><i class="fas fa-trash-alt" style="color:#f87171"></i><span style="color:#f87171;font-size:10px">Delete</span></div>` : ''}
+        </div>
+    </div>`;
+}
+
+function setupAutoplay(container) {
+    if (ioObs) ioObs.disconnect();
+    let cur = null;
+    ioObs = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+            const v = e.target.querySelector('video');
+            if (!v) return;
+            if (e.isIntersecting) {
+                if (cur && cur !== v) { cur.pause(); cur.currentTime = 0; }
+                v.muted = true; v.play().catch(()=>{});
+                cur = v;
+            } else { v.pause(); }
+        });
+    }, { threshold: 0.8 });
+    container.querySelectorAll('.video-card').forEach(c => ioObs.observe(c));
+}
+
+// ═══════════════════════════════════════════
+// LIKES
+// ═══════════════════════════════════════════
+async function toggleLike(postId, btn) {
+    if (!me) return toast('Log in to like!');
+    const heart = btn.querySelector('i');
+    const el = document.getElementById('lc-' + postId);
+    if (likes.has(postId)) {
+        likes.delete(postId); heart.classList.remove('liked');
+        el.textContent = Math.max(0, parseInt(el.textContent) - 1);
+        await sb.from('likes').delete().eq('post_id', postId).eq('username', me.username);
+        await sb.rpc('decrement_likes', { post_id: postId });
+    } else {
+        likes.add(postId); heart.classList.add('liked');
+        heart.classList.add('heart-pop'); setTimeout(() => heart.classList.remove('heart-pop'), 350);
+        el.textContent = parseInt(el.textContent) + 1;
+        await sb.from('likes').insert({ post_id: postId, username: me.username });
+        await sb.rpc('increment_likes', { post_id: postId });
+        // Notify post owner
+        const { data: post } = await sb.from('posts').select('username').eq('id', postId).single();
+        if (post && post.username !== me.username) {
+            await sb.from('notifications').insert({ to_user: post.username, from_user: me.username, from_avatar: av(me), type: 'like', message: `@${me.username} liked your video` });
+        }
+    }
+}
+
+// ═══════════════════════════════════════════
+// COMMENTS
+// ═══════════════════════════════════════════
+async function openComments(postId) {
+    commentPostId = postId;
+    document.getElementById('commentPanel').classList.add('open');
+    document.getElementById('overlay').classList.add('on');
+    await loadComments();
+}
+
+async function loadComments() {
+    const list = document.getElementById('commentList');
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#444;font-size:13px">Loading...</div>';
+    const { data } = await sb.from('comments').select('*').eq('post_id', commentPostId).order('created_at', { ascending: true });
+    const cnt = data ? data.length : 0;
+    document.getElementById('cPanelTitle').textContent = cnt + ' Comment' + (cnt !== 1 ? 's' : '');
+    const ccEl = document.getElementById('cc-' + commentPostId);
+    if (ccEl) ccEl.textContent = cnt;
+    if (!cnt) { list.innerHTML = '<div style="padding:30px;text-align:center;color:#444;font-size:13px">No comments yet. Be the first!</div>'; return; }
+    list.innerHTML = data.map(c => `
+        <div class="comment-row">
+            <img src="${c.avatar}" onerror="this.src='https://ui-avatars.com/api/?name=${esc(c.username)}&background=222&color=fff'">
+            <div>
+                <span style="font-weight:700;font-size:13px">${c.username}</span>
+                <span style="color:#777;font-size:11px;margin-left:6px">${timeAgo(c.created_at)}</span>
+                <p style="font-size:14px;color:#ddd;margin-top:2px;line-height:1.4">${escHtml(c.text)}</p>
+            </div>
+        </div>`).join('');
+    list.scrollTop = list.scrollHeight;
+}
+
+async function postComment() {
+    if (!me) return toast('Log in to comment!');
+    const input = document.getElementById('cInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    await sb.from('comments').insert({ post_id: commentPostId, username: me.username, avatar: av(me), text });
+    // Notify post owner
+    const { data: post } = await sb.from('posts').select('username').eq('id', commentPostId).single();
+    if (post && post.username !== me.username) {
+        await sb.from('notifications').insert({ to_user: post.username, from_user: me.username, from_avatar: av(me), type: 'comment', message: `@${me.username} commented: "${text.slice(0,40)}"` });
+    }
+    await loadComments();
+}
+
+function closeComments() {
+    document.getElementById('commentPanel').classList.remove('open');
+    document.getElementById('overlay').classList.remove('on');
+}
+
+// ═══════════════════════════════════════════
+// FOLLOW
+// ═══════════════════════════════════════════
+async function toggleFollow(username, avatar, btn) {
+    if (!me) return toast('Log in to follow!');
+    if (username === me.username) return;
+    if (follows.has(username)) {
+        follows.delete(username); btn.textContent = 'Follow'; btn.className = 'follow-pill off';
+        await sb.from('follows').delete().eq('follower', me.username).eq('following', username);
+    } else {
+        follows.add(username); btn.textContent = 'Following'; btn.className = 'follow-pill on';
+        await sb.from('follows').insert({ follower: me.username, following: username });
+        toast('Following @' + username);
+        await sb.from('notifications').insert({ to_user: username, from_user: me.username, from_avatar: av(me), type: 'follow', message: `@${me.username} started following you` });
+    }
+}
+
+// ═══════════════════════════════════════════
+// PROFILE MODAL
+// ═══════════════════════════════════════════
+async function openProfile(username, avatar) {
+    if (!username && me) { username = me.username; avatar = av(me); }
+    if (!username) return;
+    profileTarget = { username, avatar };
+    document.getElementById('pAvatar').src = avatar || `https://ui-avatars.com/api/?name=${username}&background=222&color=fff`;
+    document.getElementById('pName').textContent = '@' + username;
+    const [{ count: frs }, { count: fwg }] = await Promise.all([
+        sb.from('follows').select('*', { count: 'exact', head: true }).eq('following', username),
+        sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower', username)
+    ]);
+    document.getElementById('pFollowers').textContent = frs || 0;
+    document.getElementById('pFollowing').textContent = fwg || 0;
+    const isSelf = me && me.username === username;
+    const isFollowing = follows.has(username);
+    const actions = document.getElementById('pActions');
+    if (isSelf) {
+        actions.innerHTML = '<span style="color:#555;font-size:13px">Your profile</span>';
+    } else {
+        actions.innerHTML = `
+            <button id="pFollowBtn" onclick="profileToggleFollow()" class="${isFollowing ? 'grey-btn' : 'red-btn'}">${isFollowing ? 'Following' : 'Follow'}</button>
+            <button onclick="profileMessage()" class="grey-btn">Message</button>`;
+    }
+    document.getElementById('profileModal').classList.add('on');
+}
+
+async function profileToggleFollow() {
+    if (!profileTarget) return;
+    const dummy = document.createElement('button');
+    await toggleFollow(profileTarget.username, profileTarget.avatar, dummy);
+    const btn = document.getElementById('pFollowBtn');
+    if (btn) {
+        const isNow = follows.has(profileTarget.username);
+        btn.textContent = isNow ? 'Following' : 'Follow';
+        btn.className = isNow ? 'grey-btn' : 'red-btn';
+    }
+    const { count } = await sb.from('follows').select('*', { count: 'exact', head: true }).eq('following', profileTarget.username);
+    document.getElementById('pFollowers').textContent = count || 0;
+}
+
+function profileMessage() {
+    closeProfile();
+    showPage('messages');
+    if (profileTarget) openChat(profileTarget.username, profileTarget.avatar);
+}
+
+function closeProfile() { document.getElementById('profileModal').classList.remove('on'); }
+
+// ═══════════════════════════════════════════
+// MESSAGES
+// ═══════════════════════════════════════════
+async function loadConversations() {
+    const list = document.getElementById('convList');
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#444;font-size:13px">Loading...</div>';
+    if (!me) { list.innerHTML = '<div style="padding:30px;text-align:center;color:#444;font-size:13px">Log in to message people</div>'; return; }
+
+    const { data: sent } = await sb.from('dms').select('to_user').eq('from_user', me.username);
+    const { data: recv } = await sb.from('dms').select('from_user, from_avatar').eq('to_user', me.username);
+    const partners = new Map();
+    (sent || []).forEach(m => partners.set(m.to_user, null));
+    (recv || []).forEach(m => { if (!partners.has(m.from_user)) partners.set(m.from_user, m.from_avatar); });
+
+    // Also add followed users so you can start a new chat
+    for (const u of follows) {
+        if (!partners.has(u)) partners.set(u, null);
+    }
+
+    // Fill in missing avatars
+    for (const [u, a] of partners) {
+        if (!a) {
+            const { data } = await sb.from('posts').select('avatar').eq('username', u).limit(1);
+            partners.set(u, data && data[0] ? data[0].avatar : `https://ui-avatars.com/api/?name=${u}&background=222&color=fff`);
+        }
+    }
+
+    if (!partners.size) {
+        list.innerHTML = '<div style="padding:30px;text-align:center;color:#444;font-size:13px;line-height:1.6">Follow people to start messaging them!</div>';
+        return;
+    }
+
+    // Check for unread
+    const { data: unread } = await sb.from('dms').select('from_user').eq('to_user', me.username).eq('read', false);
+    const unreadSet = new Set((unread || []).map(x => x.from_user));
+
+    list.innerHTML = Array.from(partners.entries()).map(([u, a]) => `
+        <div class="conv-row" onclick="openChat('${esc(u)}','${esc(a)}')">
+            <img src="${a}" onerror="this.src='https://ui-avatars.com/api/?name=${esc(u)}&background=222&color=fff'">
+            <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:14px">@${u}</div>
+                <div style="color:#555;font-size:12px;margin-top:1px">${follows.has(u) ? 'Following' : 'You follow each other'}</div>
+            </div>
+            ${unreadSet.has(u) ? '<div class="unread-dot"></div>' : ''}
+        </div>`).join('');
+
+    if (unreadSet.size > 0) {
+        document.getElementById('msgBadge').style.display = 'flex';
+        document.getElementById('msgBadge').textContent = unreadSet.size;
+    }
+}
+
+async function openChat(username, avatar) {
+    chatTarget = { username, avatar };
+    document.getElementById('chatAvatar').src = avatar || `https://ui-avatars.com/api/?name=${username}&background=222&color=fff`;
+    document.getElementById('chatName').textContent = '@' + username;
+    document.getElementById('chatView').classList.add('open');
+    await loadMessages();
+    // Mark as read
+    if (me) await sb.from('dms').update({ read: true }).eq('to_user', me.username).eq('from_user', username);
+    document.getElementById('msgBadge').style.display = 'none';
+    // Realtime
+    if (chatChannel) sb.removeChannel(chatChannel);
+    chatChannel = sb.channel('chat-' + Date.now())
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dms' }, p => {
+            const m = p.new;
+            if (!me || !chatTarget) return;
+            if ((m.from_user === me.username && m.to_user === chatTarget.username) ||
+                (m.from_user === chatTarget.username && m.to_user === me.username)) {
+                appendBubble(m);
             }
-            document.getElementById('profileModal').style.display = 'flex';
-        }
+        }).subscribe();
+}
 
-        async function toggleFollowProfile() {
-            if (!profileTarget) return;
-            const dummyBtn = { className: '', textContent: '' };
-            await toggleFollow(profileTarget.username, profileTarget.avatar, dummyBtn);
-            const btn = document.getElementById('profFollowBtn');
-            if (btn) {
-                const isNow = followedUsers.has(profileTarget.username);
-                btn.textContent = isNow ? 'Following' : 'Follow';
-                btn.className = 'px-5 py-2 rounded font-bold text-sm ' + (isNow ? 'bg-gray-700 text-gray-300' : 'bg-[#fe2c55] text-white');
+async function loadMessages() {
+    const wrap = document.getElementById('chatMessages');
+    wrap.innerHTML = '';
+    if (!me || !chatTarget) return;
+    const { data } = await sb.from('dms').select('*')
+        .or(`and(from_user.eq.${me.username},to_user.eq.${chatTarget.username}),and(from_user.eq.${chatTarget.username},to_user.eq.${me.username})`)
+        .order('created_at', { ascending: true });
+    (data || []).forEach(appendBubble);
+}
+
+function appendBubble(m) {
+    const wrap = document.getElementById('chatMessages');
+    const mine = me && m.from_user === me.username;
+    const el = document.createElement('div');
+    el.className = 'msg-bubble ' + (mine ? 'msg-mine' : 'msg-theirs');
+    el.textContent = m.text;
+    wrap.appendChild(el);
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function sendMsg() {
+    if (!me) return toast('Log in first!');
+    if (!chatTarget) return;
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    await sb.from('dms').insert({ from_user: me.username, to_user: chatTarget.username, from_avatar: av(me), text, read: false });
+    // Send notification to recipient
+    await sb.from('notifications').insert({ to_user: chatTarget.username, from_user: me.username, from_avatar: av(me), type: 'message', message: `@${me.username} sent you a message: "${text.slice(0,40)}"` });
+}
+
+function closeChat() {
+    document.getElementById('chatView').classList.remove('open');
+    if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }
+    chatTarget = null;
+}
+
+// ═══════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════
+async function loadNotifs() {
+    const list = document.getElementById('notifList');
+    if (!me) { list.innerHTML = '<div style="padding:30px;text-align:center;color:#444;font-size:13px">Log in to see notifications</div>'; return; }
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#444;font-size:13px">Loading...</div>';
+    const { data } = await sb.from('notifications').select('*').eq('to_user', me.username).order('created_at', { ascending: false }).limit(50);
+    if (!data || !data.length) { list.innerHTML = '<div style="padding:30px;text-align:center;color:#444;font-size:13px">No activity yet</div>'; return; }
+    list.innerHTML = data.map(n => `
+        <div class="notif-row ${n.read ? '' : 'unread'}" onclick="markNotifRead('${n.id}',this)">
+            <img src="${n.from_avatar}" onerror="this.src='https://ui-avatars.com/api/?name=${esc(n.from_user)}&background=222&color=fff'">
+            <div style="flex:1;min-width:0">
+                <p style="font-size:13px;line-height:1.4;color:${n.read?'#888':'#ddd'}">${n.message}</p>
+                <span style="font-size:11px;color:#444">${timeAgo(n.created_at)}</span>
+            </div>
+            ${!n.read ? '<div style="width:8px;height:8px;background:#fe2c55;border-radius:50%;flex-shrink:0"></div>' : ''}
+        </div>`).join('');
+    // Mark all read
+    await sb.from('notifications').update({ read: true }).eq('to_user', me.username).eq('read', false);
+    document.getElementById('notifBadge').style.display = 'none';
+}
+
+async function markNotifRead(id, row) {
+    row.classList.remove('unread');
+    const dot = row.querySelector('[style*="background:#fe2c55"]');
+    if (dot) dot.remove();
+    await sb.from('notifications').update({ read: true }).eq('id', id);
+}
+
+function subscribeNotifs() {
+    if (!me) return;
+    notifChannel = sb.channel('notifs-' + me.username)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `to_user=eq.${me.username}` }, p => {
+            const n = p.new;
+            toast('🔔 ' + n.message);
+            const badge = document.getElementById('notifBadge');
+            badge.style.display = 'flex';
+            const cur = parseInt(badge.textContent) || 0;
+            badge.textContent = cur + 1;
+        }).subscribe();
+}
+
+function subscribeDMs() {
+    if (!me) return;
+    dmChannel2 = sb.channel('dm-notif-' + me.username)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dms', filter: `to_user=eq.${me.username}` }, p => {
+            const m = p.new;
+            // Only show badge if not currently in that chat
+            if (!chatTarget || chatTarget.username !== m.from_user) {
+                const badge = document.getElementById('msgBadge');
+                badge.style.display = 'flex';
             }
-            const { count } = await sb.from('follows').select('*', { count: 'exact', head: true }).eq('following', profileTarget.username);
-            document.getElementById('profileFollowers').textContent = count || 0;
-        }
+        }).subscribe();
+}
 
-        function closeProfile() { document.getElementById('profileModal').style.display = 'none'; }
+// ═══════════════════════════════════════════
+// UPLOAD / DELETE
+// ═══════════════════════════════════════════
+async function handleUpload(event) {
+    const file = event.target.files[0];
+    if (!me) return toast('Log in to upload!');
+    if (!file) return;
+    const bar = document.getElementById('uploadBar');
+    const fill = document.getElementById('uploadFill');
+    bar.style.display = 'block'; fill.style.width = '20%';
+    const name = Date.now() + '-' + file.name;
+    try {
+        const { error: upErr } = await sb.storage.from('videos').upload(name, file);
+        if (upErr) throw upErr;
+        fill.style.width = '70%';
+        const { data: { publicUrl } } = sb.storage.from('videos').getPublicUrl(name);
+        const { error: dbErr } = await sb.from('posts').insert([{ video_url: publicUrl, username: me.username, avatar: av(me), likes: 0, comment_count: 0 }]);
+        if (dbErr) throw dbErr;
+        fill.style.width = '100%';
+        toast('Uploaded!');
+        setTimeout(() => location.reload(), 600);
+    } catch(e) { alert('Upload failed: ' + e.message); bar.style.display = 'none'; }
+    event.target.value = '';
+}
 
-        function openDMFromProfile() {
-            closeProfile();
-            if (!profileTarget) return;
-            openDMs();
-            openDMChat(profileTarget.username, profileTarget.avatar);
-        }
+async function deletePost(id) {
+    if (!confirm('Delete this video?')) return;
+    await sb.from('posts').delete().eq('id', id);
+    location.reload();
+}
 
-        async function openDMs() {
-            if (!currentUser) return showToast('Log in to message!');
-            document.getElementById('dmListPanel').classList.add('open');
-            document.getElementById('overlay').classList.add('show');
-            const dmList = document.getElementById('dmList');
-            dmList.innerHTML = '<div class="text-center text-gray-600 py-6 text-sm">Loading...</div>';
-            const { data: sent } = await sb.from('dms').select('to_user').eq('from_user', currentUser.username);
-            const { data: recv } = await sb.from('dms').select('from_user, from_avatar').eq('to_user', currentUser.username);
-            const partners = new Map();
-            (sent || []).forEach(m => partners.set(m.to_user, null));
-            (recv || []).forEach(m => partners.set(m.from_user, m.from_avatar));
-            followedUsers.forEach(u => { if (!partners.has(u)) partners.set(u, null); });
-            for (const [u, av] of partners) {
-                if (!av) {
-                    const { data } = await sb.from('posts').select('avatar').eq('username', u).limit(1);
-                    partners.set(u, data && data[0] ? data[0].avatar : `https://ui-avatars.com/api/?name=${u}&background=333&color=fff`);
-                }
-            }
-            if (!partners.size) {
-                dmList.innerHTML = '<div class="text-center text-gray-500 text-sm py-10 px-4">Follow people to message them!</div>';
-                return;
-            }
-            dmList.innerHTML = Array.from(partners.entries()).map(([u, av]) => `
-                <div class="flex items-center gap-3 px-4 py-3 hover:bg-gray-800 cursor-pointer" onclick="openDMChat('${u}','${av}')">
-                    <img src="${av}" onerror="this.src='https://ui-avatars.com/api/?name=${u}&background=333&color=fff'" class="w-10 h-10 rounded-full object-cover">
-                    <span class="font-bold text-sm">@${u}</span>
-                </div>`).join('');
-        }
+function sharePost(url) {
+    navigator.clipboard.writeText(url).then(() => toast('Link copied!')).catch(() => toast('Copy failed'));
+}
 
-        async function openDMChat(username, avatar) {
-            dmTarget = { username, avatar };
-            document.getElementById('dmChatName').textContent = '@' + username;
-            document.getElementById('dmChatAvatar').src = avatar || `https://ui-avatars.com/api/?name=${username}&background=333&color=fff`;
-            document.getElementById('dmChatPanel').classList.add('open');
-            await loadDMMessages();
-            if (dmChannel) sb.removeChannel(dmChannel);
-            dmChannel = sb.channel('dms-' + Date.now())
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dms' }, payload => {
-                    const m = payload.new;
-                    if (!currentUser || !dmTarget) return;
-                    if ((m.from_user === currentUser.username && m.to_user === dmTarget.username) ||
-                        (m.from_user === dmTarget.username && m.to_user === currentUser.username)) appendMsg(m);
-                }).subscribe();
-        }
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function closeAll() { closeComments(); }
+function loginWithDiscord() {
+    location.href = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT)}&response_type=token&scope=identify`;
+}
+function logout() { localStorage.removeItem('tik_u'); location.reload(); }
 
-        async function loadDMMessages() {
-            const wrap = document.getElementById('dmMessages');
-            wrap.innerHTML = '';
-            if (!currentUser || !dmTarget) return;
-            const { data } = await sb.from('dms').select('*')
-                .or(`and(from_user.eq.${currentUser.username},to_user.eq.${dmTarget.username}),and(from_user.eq.${dmTarget.username},to_user.eq.${currentUser.username})`)
-                .order('created_at', { ascending: true });
-            (data || []).forEach(appendMsg);
-        }
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('on');
+    clearTimeout(toastTmr);
+    toastTmr = setTimeout(() => t.classList.remove('on'), 2800);
+}
 
-        function appendMsg(m) {
-            const wrap = document.getElementById('dmMessages');
-            const isMine = currentUser && m.from_user === currentUser.username;
-            const el = document.createElement('div');
-            el.className = 'dm-msg ' + (isMine ? 'mine' : 'theirs');
-            el.textContent = m.text;
-            wrap.appendChild(el);
-            wrap.scrollTop = wrap.scrollHeight;
-        }
+function esc(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+function escHtml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function timeAgo(d) {
+    const s = (Date.now() - new Date(d)) / 1000;
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
+}
 
-        async function sendDM() {
-            if (!currentUser || !dmTarget) return showToast('Log in to message!');
-            const input = document.getElementById('dmInput');
-            const text = input.value.trim();
-            if (!text) return;
-            input.value = '';
-            await sb.from('dms').insert({ from_user: currentUser.username, to_user: dmTarget.username, from_avatar: avatarUrl(currentUser), text });
-        }
-
-        function closeDMChat() {
-            document.getElementById('dmChatPanel').classList.remove('open');
-            if (dmChannel) { sb.removeChannel(dmChannel); dmChannel = null; }
-            dmTarget = null;
-        }
-
-        function closeDMs() {
-            closeDMChat();
-            document.getElementById('dmListPanel').classList.remove('open');
-            document.getElementById('overlay').classList.remove('show');
-        }
-
-        async function handleUpload(event) {
-            const file = event.target.files[0];
-            if (!currentUser) return showToast('Log in to upload!');
-            if (!file) return;
-            const status = document.getElementById('uploadStatus');
-            const bar = document.getElementById('progressBar');
-            status.classList.remove('hidden');
-            bar.style.width = '20%';
-            const fileName = Date.now() + '-' + file.name;
-            try {
-                const { error: upErr } = await sb.storage.from('videos').upload(fileName, file);
-                if (upErr) throw upErr;
-                bar.style.width = '70%';
-                const { data: { publicUrl } } = sb.storage.from('videos').getPublicUrl(fileName);
-                const { error: dbErr } = await sb.from('posts').insert([{ video_url: publicUrl, username: currentUser.username, avatar: avatarUrl(currentUser), likes: 0, comment_count: 0 }]);
-                if (dbErr) throw dbErr;
-                bar.style.width = '100%';
-                showToast('Uploaded!');
-                setTimeout(() => window.location.reload(), 600);
-            } catch(err) {
-                alert('Upload failed: ' + err.message);
-                status.classList.add('hidden');
-            }
-            event.target.value = '';
-        }
-
-        async function deletePost(id) {
-            if (!confirm('Delete this video?')) return;
-            await sb.from('posts').delete().eq('id', id);
-            window.location.reload();
-        }
-
-        function sharePost(url) {
-            navigator.clipboard.writeText(url).then(() => showToast('Link copied!')).catch(() => showToast('Copy failed'));
-        }
-
-        function closeAll() { closeComments(); closeDMs(); }
-
-        function loginWithDiscord() {
-            window.location.href = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
-        }
-
-        function logout() { localStorage.removeItem('tik_user'); window.location.reload(); }
-
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.textContent = msg; t.classList.add('show');
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
-        }
-
-        function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-        function timeAgo(d) {
-            const s = (Date.now() - new Date(d)) / 1000;
-            if (s < 60) return 'just now';
-            if (s < 3600) return Math.floor(s/60) + 'm ago';
-            if (s < 86400) return Math.floor(s/3600) + 'h ago';
-            return Math.floor(s/86400) + 'd ago';
-        }
-
-        init();
-    </script>
+init();
+</script>
 </body>
 </html>
